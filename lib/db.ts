@@ -246,3 +246,16 @@ export async function createOrder(input: {
   orders.push(order);
   return order;
 }
+
+
+// -----------------------------------------------------------------------------
+// Real-data bridge helpers
+// -----------------------------------------------------------------------------
+
+// Compute a realistic "market rate" for a crop by averaging the seed prices.
+// Used by dashboards to show "you're getting ₹X more than the local mandi".
+export function getLocalMandiRate(crop: Crop): number {
+  const rows = prices.filter(p => p.crop === crop);
+  if (rows.length === 0) return 0;
+  return Math.round(rows.reduce((s, p) => s + p.price, 0) / rows.length);
+}
