@@ -1,19 +1,26 @@
 // lib/mandiApi.ts
 // -----------------------------------------------------------------------------
 // PURPOSE: Client for the Government of India Mandi Prices API.
-//          Fetches raw data from data.gov.in, normalizes it into our internal
-//          `Price` shape, and caches the response for 30 minutes.
 //
-//          Used ONLY on the server (API route). Never import this in a "use
-//          client" component — the API key must stay server-side.
+//   Handles:
+//     • Fetching by crop (+ optional state + optional district)
+//     • Normalizing government names ("Keralam" → "Kerala", "NCT of Delhi" → "Delhi")
+//     • Normalizing district names ("Ahmednagar" → "Ahilyanagar", etc.)
+//     • Converting ₹/quintal → ₹/kg
+//     • Parsing DD/MM/YYYY dates → ISO
+//     • Distances via haversine from Nashik
+//     • Fuzzy search helpers (used client-side)
+//
+//   This file is safe to import from BOTH server routes and client components.
+//   It never reads process.env.DATA_GOV_API_KEY — the actual API key is used
+//   only inside app/api/mandi/route.ts.
 // -----------------------------------------------------------------------------
 
 import type { Crop, Price } from "./db";
 
-const BASE = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070";
+const BASE =
+  "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070";
 
-// Map our internal crop names to the exact names the govt API uses.
-// Some crops exist under multiple names (e.g. Rice is also Paddy).
 const COMMODITY_ALIASES: Record<Crop, string[]> = {
   Tomato: ["Tomato"],
   Onion:  ["Onion"],
@@ -22,12 +29,69 @@ const COMMODITY_ALIASES: Record<Crop, string[]> = {
   Rice:   ["Rice", "Paddy(Dhan)(Common)"],
 };
 
-// Approximate lat/lng for each state's capital, used to compute distance
-// from the farmer's location (Nashik by default).
+// -----------------------------------------------------------------------------
+// State name normalization — UI name → govt API name
+// -----------------------------------------------------------------------------
+const STATE_NAME_MAP: Record<string, string> = {
+  "Delhi (NCT)":              "Delhi",
+  "Delhi":                    "Delhi",
+  "NCT of Delhi":             "Delhi",
+  "Kerala":                   "Keralam",
+  "Keralam":                  "Keralam",
+  "Odisha":                   "Odisha",
+  "Orissa":                   "Odisha",
+  "Tamil Nadu":               "Tamil Nadu",
+  "Tamilnadu":                "Tamil Nadu",
+  "Chandigarh (UT)":          "Chandigarh",
+  "Puducherry":               "Puducherry",
+  "Pondicherry":              "Puducherry",
+  "Uttarakhand":              "Uttarakhand",
+  "Uttaranchal":              "Uttarakhand",
+  "Andaman and Nicobar Islands (UT)": "Andaman and Nicobar Islands",
+  "Dadra and Nagar Haveli and Daman and Diu (UT)": "Dadra and Nagar Haveli",
+  "Jammu and Kashmir":        "Jammu and Kashmir",
+};
+
+export function toGovtStateName(uiState: string): string {
+  if (!uiState) return uiState;
+  return STATE_NAME_MAP[uiState] ?? uiState;
+}
+
+// -----------------------------------------------------------------------------
+// District name normalization — some districts in our geoData use the modern
+// name with a "(formerly X)" suffix. The govt API expects the older plain name.
+// -----------------------------------------------------------------------------
+const DISTRICT_NAME_MAP: Record<string, string> = {
+  "Chhatrapati Sambhajinagar (formerly Aurangabad)": "Aurangabad",
+  "Dharashiv (formerly Osmanabad)":                  "Osmanabad",
+  "Sahibzada Ajit Singh Nagar (Mohali)":             "Mohali",
+  "Shahid Bhagat Singh Nagar (Nawanshahr)":          "Nawanshahr",
+  "Gautam Buddha Nagar (Noida)":                     "Gautam Buddha Nagar",
+  "Hanamkonda (Warangal Urban)":                     "Warangal",
+  "Warangal (Warangal Rural)":                       "Warangal",
+  "Sri Potti Sriramulu Nellore":                     "Nellore",
+  "YSR Kadapa":                                      "Kadapa",
+  "Narmadapuram":                                    "Hoshangabad",
+  "Kendujhar":                                       "Keonjhar",
+  "Subarnapur (Sonepur)":                            "Sonepur",
+  "Kouayam":                                         "Kottayam",
+  "Ponch":                                           "Poonch",
+  "Ahmednagar":                                      "Ahilyanagar",
+  "Bengaluru Urban":                                 "Bengaluru Urban",
+  "Bengaluru Rural":                                 "Bengaluru Rural",
+};
+
+export function toGovtDistrictName(uiDistrict: string): string {
+  if (!uiDistrict) return uiDistrict;
+  return DISTRICT_NAME_MAP[uiDistrict] ?? uiDistrict;
+}
+
+// -----------------------------------------------------------------------------
+// Approximate lat/lng for state capitals — used for distance sort
+// -----------------------------------------------------------------------------
 const STATE_COORDS: Record<string, { lat: number; lng: number }> = {
   "Maharashtra":      { lat: 19.75, lng: 75.71 },
   "Delhi":            { lat: 28.61, lng: 77.20 },
-  "NCT of Delhi":     { lat: 28.61, lng: 77.20 },
   "Karnataka":        { lat: 12.97, lng: 77.59 },
   "Telangana":        { lat: 17.38, lng: 78.48 },
   "Tamil Nadu":       { lat: 13.08, lng: 80.27 },
@@ -49,12 +113,14 @@ const STATE_COORDS: Record<string, { lat: number; lng: number }> = {
   "Uttarakhand":      { lat: 30.31, lng: 78.03 },
   "Himachal Pradesh": { lat: 31.10, lng: 77.17 },
   "Goa":              { lat: 15.49, lng: 73.82 },
+  "Puducherry":       { lat: 11.93, lng: 79.83 },
+  "Chandigarh":       { lat: 30.73, lng: 76.77 },
+  "Jammu and Kashmir":{ lat: 33.78, lng: 78.10 },
+  "Ladakh":           { lat: 34.15, lng: 77.57 },
 };
 
-// Default origin for distance calculations (farmer's location).
 const ORIGIN = { lat: 19.9975, lng: 73.7898 }; // Nashik
 
-// Haversine formula: distance in km between two lat/lng points.
 function haversineKm(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number },
@@ -70,14 +136,10 @@ function haversineKm(
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
 
-// Format an API price (₹ per quintal) into ₹/kg.
 function toKgPrice(quintal: number): number {
   return Math.round((quintal / 100) * 100) / 100;
 }
 
-// -----------------------------------------------------------------------------
-// Raw govt record shape (only the fields we use)
-// -----------------------------------------------------------------------------
 interface RawRecord {
   state: string;
   district: string;
@@ -97,31 +159,35 @@ interface ApiResponse {
   records: RawRecord[];
 }
 
-// -----------------------------------------------------------------------------
-// Fetch + normalize
-// -----------------------------------------------------------------------------
-
 export interface FetchOptions {
   crop: Crop;
-  state?: string;     // optional state filter
-  limit?: number;     // max records to fetch
+  state?: string;
+  district?: string;
+  limit?: number;
   offset?: number;
 }
 
-/**
- * Fetch prices for a single crop from the govt API and normalize to `Price[]`.
- * Falls back to alternate commodity names if the primary returns 0 rows.
- */
+// -----------------------------------------------------------------------------
+// IMPORTANT: This function must ONLY be called server-side, because it uses
+// the API key from process.env. Do not call it directly from a client
+// component — go through /api/mandi instead.
+// -----------------------------------------------------------------------------
 export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
   const apiKey = process.env.DATA_GOV_API_KEY;
   if (!apiKey) {
-    console.warn("[mandiApi] DATA_GOV_API_KEY not set — returning empty list");
+    console.warn("[mandiApi] DATA_GOV_API_KEY not set — returning empty");
     return [];
   }
 
   const aliases = COMMODITY_ALIASES[opts.crop];
-  const limit = Math.min(opts.limit ?? 100, 500);
+  const limit = Math.min(opts.limit ?? 500, 1000);
   const offset = opts.offset ?? 0;
+
+  const govtState = opts.state ? toGovtStateName(opts.state) : undefined;
+  const district =
+    opts.district && opts.district !== "All"
+      ? toGovtDistrictName(opts.district)
+      : undefined;
 
   for (const alias of aliases) {
     const params = new URLSearchParams();
@@ -130,18 +196,19 @@ export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
     params.set("limit", String(limit));
     params.set("offset", String(offset));
     params.set("filters[commodity]", alias);
-    if (opts.state) params.set("filters[state.keyword]", opts.state);
+    if (govtState) params.set("filters[state.keyword]", govtState);
+    if (district) params.set("filters[district]", district);
 
     const url = `${BASE}?${params.toString()}`;
+    console.log(
+      `[mandiApi] GET crop=${alias} state=${govtState ?? "any"} district=${district ?? "any"}`,
+    );
 
     let res: Response;
     try {
-      res = await fetch(url, {
-        // Next.js fetch cache — revalidate every 30 minutes
-        next: { revalidate: 1800 },
-      });
+      res = await fetch(url, { next: { revalidate: 1800 } });
     } catch (err) {
-      console.error(`[mandiApi] fetch failed for ${alias}:`, err);
+      console.error(`[mandiApi] fetch threw for ${alias}:`, err);
       continue;
     }
 
@@ -151,7 +218,12 @@ export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
     }
 
     const data = (await res.json()) as ApiResponse;
-    if (!data.records || data.records.length === 0) continue;
+    if (!data.records || data.records.length === 0) {
+      console.warn(
+        `[mandiApi] 0 records for commodity=${alias} state=${govtState ?? "any"} district=${district ?? "any"}`,
+      );
+      continue;
+    }
 
     return data.records.map((r, i) => normalize(r, i));
   }
@@ -159,15 +231,10 @@ export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
   return [];
 }
 
-/**
- * Convert one raw govt record into our internal `Price` shape.
- */
 function normalize(r: RawRecord, idx: number): Price {
   const coords = STATE_COORDS[r.state] ?? { lat: 20, lng: 78 };
   const distanceKm = haversineKm(ORIGIN, coords);
 
-  // Trend heuristic: we don't have historical data from the API, so derive
-  // a plausible trend from the min/max spread and modal position.
   const spread = r.max_price - r.min_price;
   const mid = (r.min_price + r.max_price) / 2;
   let trend: "up" | "down" | "flat" = "flat";
@@ -175,11 +242,11 @@ function normalize(r: RawRecord, idx: number): Price {
   else if (spread > 0 && r.modal_price === r.max_price) trend = "up";
   else if (spread > 0 && r.modal_price === r.min_price) trend = "down";
 
-  // Convert DD/MM/YYYY → ISO
   const [dd, mm, yyyy] = (r.arrival_date ?? "").split("/");
-  const iso = dd && mm && yyyy
-    ? new Date(Number(yyyy), Number(mm) - 1, Number(dd)).toISOString()
-    : new Date().toISOString();
+  const iso =
+    dd && mm && yyyy
+      ? new Date(Number(yyyy), Number(mm) - 1, Number(dd)).toISOString()
+      : new Date().toISOString();
 
   return {
     id: `mandi-${idx}-${r.market}-${r.commodity}`.replace(/\s+/g, "-"),
@@ -201,126 +268,58 @@ function mapCommodityToCrop(commodity: string): Crop {
   if (c.startsWith("potato")) return "Potato";
   if (c.startsWith("wheat"))  return "Wheat";
   if (c.includes("paddy") || c.startsWith("rice")) return "Rice";
-  return "Tomato"; // default — shouldn't happen for our filters
+  return "Tomato";
 }
 
-// -----------------------------------------------------------------------------
-// Public: fetch many crops at once (used by /api/mandi?crop=all)
-// -----------------------------------------------------------------------------
-export async function fetchAllCrops(): Promise<Price[]> {
-  const crops: Crop[] = ["Tomato", "Onion", "Potato", "Wheat", "Rice"];
-  const results = await Promise.all(
-    crops.map((crop) => fetchMandiPrices({ crop, limit: 100 })),
-  );
-  // De-duplicate by id
-  const seen = new Set<string>();
-  const flat: Price[] = [];
-  for (const list of results) {
-    for (const p of list) {
-      if (seen.has(p.id)) continue;
-      seen.add(p.id);
-      flat.push(p);
-    }
-  }
-  return flat;
-}
+// =============================================================================
+// Fuzzy search helpers (client-side)
+// =============================================================================
 
-
-// -----------------------------------------------------------------------------
-// Fuzzy search helpers
-// -----------------------------------------------------------------------------
-
-// Common spellings/typos → canonical government spelling.
-// Add more as users find them.
 const STATE_ALIASES: Record<string, string> = {
-  "andra": "andhra",
-  "andhara": "andhra",
-  "andrapradesh": "andhra pradesh",
-  "andhra": "andhra pradesh",
-  "bengaluru": "karnataka",
-  "bangalore": "karnataka",
-  "banglore": "karnataka",
-  "bombay": "mumbai",
-  "calcutta": "kolkata",
-  "madras": "chennai",
-  "nasik": "nashik",
-  "kerla": "kerala",
-  "keralam": "kerala",
-  "hyd": "hyderabad",
-  "hydrabad": "hyderabad",
-  "up": "uttar pradesh",
-  "mp": "madhya pradesh",
-  "ap": "andhra pradesh",
-  "ts": "telangana",
-  "mh": "maharashtra",
-  "maharastra": "maharashtra",
-  "maharasthra": "maharashtra",
-  "karnatka": "karnataka",
-  "tamilnadu": "tamil nadu",
-  "tamil nadu": "tamil nadu",
-  "tn": "tamil nadu",
-  "punjab": "punjab",
-  "gujrat": "gujarat",
-  "rajsthan": "rajasthan",
-  "rajasthan": "rajasthan",
-  "wb": "west bengal",
-  "odisa": "odisha",
-  "orissa": "odisha",
-  "benglore": "bengaluru",
+  "andra": "andhra", "andhara": "andhra", "andrapradesh": "andhra pradesh",
+  "andhra": "andhra pradesh", "bengaluru": "karnataka", "bangalore": "karnataka",
+  "banglore": "karnataka", "bombay": "mumbai", "calcutta": "kolkata",
+  "madras": "chennai", "nasik": "nashik", "kerla": "kerala", "keralam": "kerala",
+  "hyd": "hyderabad", "hydrabad": "hyderabad", "up": "uttar pradesh",
+  "mp": "madhya pradesh", "ap": "andhra pradesh", "ts": "telangana",
+  "mh": "maharashtra", "maharastra": "maharashtra", "maharasthra": "maharashtra",
+  "karnatka": "karnataka", "tamilnadu": "tamil nadu", "tn": "tamil nadu",
+  "gujrat": "gujarat", "rajsthan": "rajasthan", "wb": "west bengal",
+  "odisa": "odisha", "orissa": "odisha", "benglore": "bengaluru",
 };
 
-/** Levenshtein distance between two strings (edit distance). */
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;
   if (!b.length) return a.length;
-
   const prev = new Array(b.length + 1);
   const curr = new Array(b.length + 1);
   for (let j = 0; j <= b.length; j++) prev[j] = j;
-
   for (let i = 1; i <= a.length; i++) {
     curr[0] = i;
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[j] = Math.min(
-        prev[j] + 1,        // deletion
-        curr[j - 1] + 1,    // insertion
-        prev[j - 1] + cost, // substitution
-      );
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
     }
     for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
   }
   return prev[b.length];
 }
 
-/**
- * Score how well a query matches a target string. Returns 0..1 where 1 is a
- * perfect match. Combines:
- *   - exact substring (score 1)
- *   - start-of-word match (score 0.9)
- *   - fuzzy Levenshtein match on words (score depends on distance)
- */
 function fuzzyScore(query: string, target: string): number {
   const q = query.toLowerCase().trim();
   const t = target.toLowerCase().trim();
   if (!q) return 0;
   if (t.includes(q)) return 1;
-
-  // Word-level fuzzy
   const qWords = q.split(/\s+/);
   const tWords = t.split(/[\s,()\/-]+/);
-
   let total = 0;
   for (const qw of qWords) {
     let best = 0;
     for (const tw of tWords) {
       if (!tw) continue;
-      // Exact word match
       if (tw === qw) { best = 1; break; }
-      // Prefix match (e.g. "beng" → "bengaluru")
       if (tw.startsWith(qw)) { best = Math.max(best, 0.9); continue; }
-      // Fuzzy: accept up to 40% edit distance
       const dist = levenshtein(qw, tw);
       const maxLen = Math.max(qw.length, tw.length);
       if (maxLen > 0 && dist / maxLen <= 0.4) {
@@ -332,24 +331,15 @@ function fuzzyScore(query: string, target: string): number {
   return total / qWords.length;
 }
 
-/**
- * Expand a user query through the alias table.
- * Returns the original query plus any canonical form it maps to.
- */
 function expandQuery(query: string): string[] {
   const q = query.toLowerCase().trim();
   const out = new Set<string>([q]);
-  // Strip spaces to check compact aliases like "andrapradesh"
   const compact = q.replace(/\s+/g, "");
   if (STATE_ALIASES[compact]) out.add(STATE_ALIASES[compact]);
   if (STATE_ALIASES[q]) out.add(STATE_ALIASES[q]);
   return [...out];
 }
 
-/**
- * Client-side fuzzy filter. Call this on the array of prices, pass the raw
- * query, and get back only rows that match with score > 0.5.
- */
 export function fuzzyFilterPrices(prices: Price[], query: string): Price[] {
   const q = query.trim();
   if (!q) return prices;
