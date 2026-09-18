@@ -224,3 +224,143 @@ export async function fetchAllCrops(): Promise<Price[]> {
   }
   return flat;
 }
+
+
+// -----------------------------------------------------------------------------
+// Fuzzy search helpers
+// -----------------------------------------------------------------------------
+
+// Common spellings/typos → canonical government spelling.
+// Add more as users find them.
+const STATE_ALIASES: Record<string, string> = {
+  "andra": "andhra",
+  "andhara": "andhra",
+  "andrapradesh": "andhra pradesh",
+  "andhra": "andhra pradesh",
+  "bengaluru": "karnataka",
+  "bangalore": "karnataka",
+  "banglore": "karnataka",
+  "bombay": "mumbai",
+  "calcutta": "kolkata",
+  "madras": "chennai",
+  "nasik": "nashik",
+  "kerla": "kerala",
+  "keralam": "kerala",
+  "hyd": "hyderabad",
+  "hydrabad": "hyderabad",
+  "up": "uttar pradesh",
+  "mp": "madhya pradesh",
+  "ap": "andhra pradesh",
+  "ts": "telangana",
+  "mh": "maharashtra",
+  "maharastra": "maharashtra",
+  "maharasthra": "maharashtra",
+  "karnatka": "karnataka",
+  "tamilnadu": "tamil nadu",
+  "tamil nadu": "tamil nadu",
+  "tn": "tamil nadu",
+  "punjab": "punjab",
+  "gujrat": "gujarat",
+  "rajsthan": "rajasthan",
+  "rajasthan": "rajasthan",
+  "wb": "west bengal",
+  "odisa": "odisha",
+  "orissa": "odisha",
+  "benglore": "bengaluru",
+};
+
+/** Levenshtein distance between two strings (edit distance). */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  const prev = new Array(b.length + 1);
+  const curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,        // deletion
+        curr[j - 1] + 1,    // insertion
+        prev[j - 1] + cost, // substitution
+      );
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
+/**
+ * Score how well a query matches a target string. Returns 0..1 where 1 is a
+ * perfect match. Combines:
+ *   - exact substring (score 1)
+ *   - start-of-word match (score 0.9)
+ *   - fuzzy Levenshtein match on words (score depends on distance)
+ */
+function fuzzyScore(query: string, target: string): number {
+  const q = query.toLowerCase().trim();
+  const t = target.toLowerCase().trim();
+  if (!q) return 0;
+  if (t.includes(q)) return 1;
+
+  // Word-level fuzzy
+  const qWords = q.split(/\s+/);
+  const tWords = t.split(/[\s,()\/-]+/);
+
+  let total = 0;
+  for (const qw of qWords) {
+    let best = 0;
+    for (const tw of tWords) {
+      if (!tw) continue;
+      // Exact word match
+      if (tw === qw) { best = 1; break; }
+      // Prefix match (e.g. "beng" → "bengaluru")
+      if (tw.startsWith(qw)) { best = Math.max(best, 0.9); continue; }
+      // Fuzzy: accept up to 40% edit distance
+      const dist = levenshtein(qw, tw);
+      const maxLen = Math.max(qw.length, tw.length);
+      if (maxLen > 0 && dist / maxLen <= 0.4) {
+        best = Math.max(best, 1 - dist / maxLen);
+      }
+    }
+    total += best;
+  }
+  return total / qWords.length;
+}
+
+/**
+ * Expand a user query through the alias table.
+ * Returns the original query plus any canonical form it maps to.
+ */
+function expandQuery(query: string): string[] {
+  const q = query.toLowerCase().trim();
+  const out = new Set<string>([q]);
+  // Strip spaces to check compact aliases like "andrapradesh"
+  const compact = q.replace(/\s+/g, "");
+  if (STATE_ALIASES[compact]) out.add(STATE_ALIASES[compact]);
+  if (STATE_ALIASES[q]) out.add(STATE_ALIASES[q]);
+  return [...out];
+}
+
+/**
+ * Client-side fuzzy filter. Call this on the array of prices, pass the raw
+ * query, and get back only rows that match with score > 0.5.
+ */
+export function fuzzyFilterPrices(prices: Price[], query: string): Price[] {
+  const q = query.trim();
+  if (!q) return prices;
+  const expanded = expandQuery(q);
+  const scored = prices
+    .map((p) => {
+      const hay = `${p.market} ${p.city} ${p.state} ${p.crop}`;
+      const score = Math.max(...expanded.map((e) => fuzzyScore(e, hay)));
+      return { p, score };
+    })
+    .filter(({ score }) => score > 0.45)
+    .sort((a, b) => b.score - a.score);
+  return scored.map(({ p }) => p);
+}
