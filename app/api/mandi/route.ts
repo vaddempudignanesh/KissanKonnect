@@ -9,7 +9,7 @@
 //   1. Try crop + state + district
 //   2. If 0 rows → retry with crop + state (drop district)
 //   3. If still 0 → retry with crop only (all India)
-//   4. If still 0 → fall back to seed data
+//   4. If still 0 → fall back to seed data (FILTERED by state/district)
 //   The user always sees something, and the response includes a `note`
 //   explaining what happened.
 import { NextRequest, NextResponse } from "next/server";
@@ -17,7 +17,7 @@ import { fetchMandiPrices, toGovtStateName } from "@/lib/mandiApi";
 import { getPrices, type Crop } from "@/lib/db";
 
 export const runtime = "nodejs";
-export const revalidate = 1800;
+export const revalidate = process.env.NODE_ENV === "production" ? 1800 : 0;
 
 const VALID_CROPS: Crop[] = ["Tomato", "Onion", "Potato", "Wheat", "Rice"];
 
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const cropParam = searchParams.get("crop") ?? "Tomato";
   const stateRaw  = searchParams.get("state") ?? "";
   const district  = searchParams.get("district") ?? "";
-  const limit     = Number(searchParams.get("limit") ?? "500");
+  const limit     = Number(searchParams.get("limit") ?? "2000");
 
   const state = stateRaw ? toGovtStateName(stateRaw) : "";
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     }
 
     // =========================================================================
-    // SINGLE CROP — 3-tier fallback
+    // SINGLE CROP — 4-tier fallback
     // =========================================================================
     const crop: Crop = VALID_CROPS.includes(cropParam as Crop)
       ? (cropParam as Crop)
@@ -109,26 +109,69 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // -------- Attempt 4: seed fallback --------
+    // -------- Attempt 4: seed fallback (filtered by user's state/district) --------
     console.warn(
       `[/api/mandi] 0 rows from govt for ${crop} — falling back to seed`,
     );
-    const seed = await getPrices(crop);
+    const seedAll = await getPrices(crop);
+
+    // Respect the user's state filter when possible.
+    // NOTE: seed data's `state` uses the same names as the UI geoData
+    // ("Maharashtra", "Uttar Pradesh", etc.). We compare against the ORIGINAL
+    // stateRaw (not govtState) because the seed list was authored with UI names.
+    let seed = seedAll;
+    const uiState = stateRaw.trim();
+    if (uiState) {
+      const stateFiltered = seedAll.filter((p) => p.state === uiState);
+      if (stateFiltered.length > 0) seed = stateFiltered;
+    }
+
+    if (district && district !== "All") {
+      const districtFiltered = seed.filter(
+        (p) => p.city.toLowerCase() === district.toLowerCase(),
+      );
+      if (districtFiltered.length > 0) seed = districtFiltered;
+    }
+
+    // If the filter produced nothing, be honest about it.
+    if (seed.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        source: "seed",
+        fetchedAt: new Date().toISOString(),
+        count: 0,
+        prices: [],
+        note:
+          `No ${crop} arrivals reported in ` +
+          `${district !== "All" && district ? district + ", " : ""}${uiState || "India"} today. ` +
+          `Try a different district or state.`,
+      });
+    }
+
     return NextResponse.json({
-      ok: true, source: "seed",
+      ok: true,
+      source: "seed",
       fetchedAt: new Date().toISOString(),
-      count: seed.length, prices: seed,
-      note: `No live ${crop} data available right now — showing cached sample data.`,
+      count: seed.length,
+      prices: seed,
+      note:
+        `No live ${crop} data available right now — ` +
+        `showing cached sample data for ${uiState || "India"}` +
+        `${district && district !== "All" ? ` / ${district}` : ""}.`,
     });
   } catch (err) {
     console.error("[/api/mandi] unhandled error:", err);
-    const seed = await getPrices();
+    const seedAll = await getPrices();
+    const seed = state
+      ? seedAll.filter((p) => p.state === state)
+      : seedAll;
     return NextResponse.json(
       {
         ok: false, source: "seed",
         fetchedAt: new Date().toISOString(),
         count: seed.length, prices: seed,
         error: String(err),
+        note: `Live data fetch failed — showing cached sample data for ${state || "India"}.`,
       },
       { status: 200 },
     );

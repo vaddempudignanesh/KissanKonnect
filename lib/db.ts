@@ -121,17 +121,126 @@ const buyers: Buyer[] = [
   { id: "B6", name: "Dubai Fresh Exports", type: "Export", city: "Dubai", state: "UAE", distanceKm: 1900, avatar: "✈️", rating: 4.7, logoColor: "#006400" },
 ];
 
+// -----------------------------------------------------------------------------
+// Realistic seed prices — spread across major Indian states so that picking
+// any state from the geo picker returns at least a few mandis.
+// Distances are approximate kilometres from Nashik (the ORIGIN in mandiApi).
+// -----------------------------------------------------------------------------
 const prices: Price[] = [
-  { id: "P1", crop: "Tomato", market: "Pune Mandi", city: "Pune", state: "Maharashtra", price: 17, distanceKm: 50, trend: "up", updatedAt: new Date().toISOString() },
-  { id: "P2", crop: "Tomato", market: "Mumbai Mandi", city: "Mumbai", state: "Maharashtra", price: 18, distanceKm: 80, trend: "flat", updatedAt: new Date().toISOString() },
-  { id: "P3", crop: "Tomato", market: "Nashik Mandi", city: "Nashik", state: "Maharashtra", price: 15, distanceKm: 90, trend: "down", updatedAt: new Date().toISOString() },
-  { id: "P4", crop: "Tomato", market: "Azadpur Mandi", city: "Delhi", state: "Delhi", price: 22, distanceKm: 1200, trend: "up", updatedAt: new Date().toISOString() },
-  { id: "P5", crop: "Tomato", market: "Yeshwanthpur", city: "Bangalore", state: "Karnataka", price: 20, distanceKm: 900, trend: "up", updatedAt: new Date().toISOString() },
-  { id: "P6", crop: "Tomato", market: "Bowenpally", city: "Hyderabad", state: "Telangana", price: 19, distanceKm: 700, trend: "flat", updatedAt: new Date().toISOString() },
-  { id: "P7", crop: "Tomato", market: "Koyambedu", city: "Chennai", state: "Tamil Nadu", price: 18, distanceKm: 1100, trend: "down", updatedAt: new Date().toISOString() },
-  { id: "P8", crop: "Tomato", market: "Sealdah", city: "Kolkata", state: "West Bengal", price: 17, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
-  { id: "P9", crop: "Tomato", market: "Dubai Central", city: "Dubai", state: "UAE", price: 45, distanceKm: 1900, trend: "up", updatedAt: new Date().toISOString() },
-  { id: "P10", crop: "Tomato", market: "Singapore Mkt", city: "Singapore", state: "Singapore", price: 50, distanceKm: 3900, trend: "up", updatedAt: new Date().toISOString() },
+  // ============================== TOMATO ==============================
+  // Maharashtra
+  { id: "P-T-MH-1", crop: "Tomato", market: "Pune APMC",        city: "Pune",        state: "Maharashtra",   price: 17, distanceKm: 210,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-MH-2", crop: "Tomato", market: "Mumbai Vashi APMC", city: "Mumbai",      state: "Maharashtra",   price: 18, distanceKm: 165,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-T-MH-3", crop: "Tomato", market: "Nashik APMC",      city: "Nashik",      state: "Maharashtra",   price: 15, distanceKm: 5,    trend: "down", updatedAt: new Date().toISOString() },
+  { id: "P-T-MH-4", crop: "Tomato", market: "Nagpur APMC",      city: "Nagpur",      state: "Maharashtra",   price: 19, distanceKm: 600,  trend: "up",   updatedAt: new Date().toISOString() },
+  // Delhi
+  { id: "P-T-DL-1", crop: "Tomato", market: "Azadpur Mandi",    city: "Delhi",       state: "Delhi",         price: 22, distanceKm: 1200, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-DL-2", crop: "Tomato", market: "Okhla Mandi",      city: "Delhi",       state: "Delhi",         price: 21, distanceKm: 1210, trend: "flat", updatedAt: new Date().toISOString() },
+  // Uttar Pradesh
+  { id: "P-T-UP-1", crop: "Tomato", market: "Kanpur Mandi",     city: "Kanpur Nagar",state: "Uttar Pradesh", price: 19, distanceKm: 1100, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-UP-2", crop: "Tomato", market: "Agra Mandi",       city: "Agra",        state: "Uttar Pradesh", price: 18, distanceKm: 1055, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-T-UP-3", crop: "Tomato", market: "Lucknow Mandi",    city: "Lucknow",     state: "Uttar Pradesh", price: 20, distanceKm: 1240, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-UP-4", crop: "Tomato", market: "Varanasi Mandi",   city: "Varanasi",    state: "Uttar Pradesh", price: 21, distanceKm: 1360, trend: "up",   updatedAt: new Date().toISOString() },
+  // Karnataka
+  { id: "P-T-KA-1", crop: "Tomato", market: "Yeshwanthpur APMC",city: "Bengaluru",   state: "Karnataka",     price: 20, distanceKm: 900,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-KA-2", crop: "Tomato", market: "Hubballi APMC",    city: "Hubballi",    state: "Karnataka",     price: 18, distanceKm: 700,  trend: "flat", updatedAt: new Date().toISOString() },
+  // Telangana
+  { id: "P-T-TG-1", crop: "Tomato", market: "Bowenpally Mandi", city: "Hyderabad",   state: "Telangana",     price: 19, distanceKm: 700,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-T-TG-2", crop: "Tomato", market: "Warangal Mandi",   city: "Warangal",    state: "Telangana",     price: 18, distanceKm: 750,  trend: "down", updatedAt: new Date().toISOString() },
+  // Tamil Nadu
+  { id: "P-T-TN-1", crop: "Tomato", market: "Koyambedu Mandi",  city: "Chennai",     state: "Tamil Nadu",    price: 18, distanceKm: 1100, trend: "down", updatedAt: new Date().toISOString() },
+  { id: "P-T-TN-2", crop: "Tomato", market: "Madurai Mandi",    city: "Madurai",     state: "Tamil Nadu",    price: 17, distanceKm: 1250, trend: "flat", updatedAt: new Date().toISOString() },
+  // West Bengal
+  { id: "P-T-WB-1", crop: "Tomato", market: "Sealdah Mandi",    city: "Kolkata",     state: "West Bengal",   price: 17, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  // Gujarat
+  { id: "P-T-GJ-1", crop: "Tomato", market: "Ahmedabad APMC",   city: "Ahmedabad",   state: "Gujarat",       price: 19, distanceKm: 480,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-GJ-2", crop: "Tomato", market: "Surat APMC",       city: "Surat",       state: "Gujarat",       price: 18, distanceKm: 350,  trend: "flat", updatedAt: new Date().toISOString() },
+  // Rajasthan
+  { id: "P-T-RJ-1", crop: "Tomato", market: "Jaipur Mandi",     city: "Jaipur",      state: "Rajasthan",     price: 20, distanceKm: 1000, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-RJ-2", crop: "Tomato", market: "Jodhpur Mandi",    city: "Jodhpur",     state: "Rajasthan",     price: 21, distanceKm: 1050, trend: "flat", updatedAt: new Date().toISOString() },
+  // Punjab
+  { id: "P-T-PB-1", crop: "Tomato", market: "Ludhiana Mandi",   city: "Ludhiana",    state: "Punjab",        price: 23, distanceKm: 1450, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-T-PB-2", crop: "Tomato", market: "Amritsar Mandi",   city: "Amritsar",    state: "Punjab",        price: 24, distanceKm: 1550, trend: "up",   updatedAt: new Date().toISOString() },
+  // Haryana
+  { id: "P-T-HR-1", crop: "Tomato", market: "Karnal Mandi",     city: "Karnal",      state: "Haryana",       price: 22, distanceKm: 1300, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-T-HR-2", crop: "Tomato", market: "Hisar Mandi",      city: "Hisar",       state: "Haryana",       price: 21, distanceKm: 1350, trend: "up",   updatedAt: new Date().toISOString() },
+  // Madhya Pradesh
+  { id: "P-T-MP-1", crop: "Tomato", market: "Indore Mandi",     city: "Indore",      state: "Madhya Pradesh",price: 18, distanceKm: 480,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-T-MP-2", crop: "Tomato", market: "Bhopal Mandi",     city: "Bhopal",      state: "Madhya Pradesh",price: 19, distanceKm: 620,  trend: "up",   updatedAt: new Date().toISOString() },
+  // Bihar
+  { id: "P-T-BR-1", crop: "Tomato", market: "Patna Mandi",      city: "Patna",       state: "Bihar",         price: 22, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  // Andhra Pradesh
+  { id: "P-T-AP-1", crop: "Tomato", market: "Vijayawada Mandi", city: "Vijayawada",  state: "Andhra Pradesh",price: 17, distanceKm: 900,  trend: "down", updatedAt: new Date().toISOString() },
+  // Kerala
+  { id: "P-T-KL-1", crop: "Tomato", market: "Kochi Mandi",      city: "Kochi",       state: "Keralam",       price: 25, distanceKm: 1300, trend: "up",   updatedAt: new Date().toISOString() },
+  // Odisha
+  { id: "P-T-OD-1", crop: "Tomato", market: "Bhubaneswar Mandi",city: "Bhubaneswar", state: "Odisha",        price: 20, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  // Assam
+  { id: "P-T-AS-1", crop: "Tomato", market: "Guwahati Mandi",   city: "Guwahati",    state: "Assam",         price: 28, distanceKm: 2200, trend: "up",   updatedAt: new Date().toISOString() },
+
+  // ============================== ONION ==============================
+  { id: "P-O-MH-1", crop: "Onion", market: "Lasalgaon APMC",   city: "Nashik",      state: "Maharashtra",   price: 18, distanceKm: 30,   trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-MH-2", crop: "Onion", market: "Pune APMC",        city: "Pune",        state: "Maharashtra",   price: 19, distanceKm: 210,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-O-MH-3", crop: "Onion", market: "Mumbai Vashi APMC",city: "Mumbai",      state: "Maharashtra",   price: 20, distanceKm: 165,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-GJ-1", crop: "Onion", market: "Rajkot APMC",      city: "Rajkot",      state: "Gujarat",       price: 17, distanceKm: 620,  trend: "down", updatedAt: new Date().toISOString() },
+  { id: "P-O-KA-1", crop: "Onion", market: "Bengaluru APMC",   city: "Bengaluru",   state: "Karnataka",     price: 22, distanceKm: 900,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-DL-1", crop: "Onion", market: "Azadpur Mandi",    city: "Delhi",       state: "Delhi",         price: 24, distanceKm: 1200, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-MP-1", crop: "Onion", market: "Indore Mandi",     city: "Indore",      state: "Madhya Pradesh",price: 19, distanceKm: 480,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-O-RJ-1", crop: "Onion", market: "Jaipur Mandi",     city: "Jaipur",      state: "Rajasthan",     price: 21, distanceKm: 1000, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-TG-1", crop: "Onion", market: "Hyderabad Mandi",  city: "Hyderabad",   state: "Telangana",     price: 20, distanceKm: 700,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-O-TN-1", crop: "Onion", market: "Chennai Mandi",    city: "Chennai",     state: "Tamil Nadu",    price: 21, distanceKm: 1100, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-WB-1", crop: "Onion", market: "Kolkata Mandi",    city: "Kolkata",     state: "West Bengal",   price: 22, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-O-UP-1", crop: "Onion", market: "Kanpur Mandi",     city: "Kanpur Nagar",state: "Uttar Pradesh", price: 20, distanceKm: 1100, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-UP-2", crop: "Onion", market: "Lucknow Mandi",    city: "Lucknow",     state: "Uttar Pradesh", price: 21, distanceKm: 1240, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-BR-1", crop: "Onion", market: "Patna Mandi",      city: "Patna",       state: "Bihar",         price: 23, distanceKm: 1500, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-O-AP-1", crop: "Onion", market: "Guntur Mandi",     city: "Guntur",      state: "Andhra Pradesh",price: 19, distanceKm: 900,  trend: "flat", updatedAt: new Date().toISOString() },
+
+  // ============================== POTATO ==============================
+  { id: "P-P-UP-1", crop: "Potato", market: "Agra Mandi",      city: "Agra",        state: "Uttar Pradesh", price: 14, distanceKm: 1055, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-P-UP-2", crop: "Potato", market: "Kanpur Mandi",    city: "Kanpur Nagar",state: "Uttar Pradesh", price: 15, distanceKm: 1100, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-P-UP-3", crop: "Potato", market: "Meerut Mandi",    city: "Meerut",      state: "Uttar Pradesh", price: 13, distanceKm: 1250, trend: "down", updatedAt: new Date().toISOString() },
+  { id: "P-P-WB-1", crop: "Potato", market: "Kolkata Mandi",   city: "Kolkata",     state: "West Bengal",   price: 16, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-P-WB-2", crop: "Potato", market: "Hooghly Mandi",   city: "Hooghly",     state: "West Bengal",   price: 15, distanceKm: 1520, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-P-PB-1", crop: "Potato", market: "Jalandhar Mandi", city: "Jalandhar",   state: "Punjab",        price: 13, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-P-MP-1", crop: "Potato", market: "Indore Mandi",    city: "Indore",      state: "Madhya Pradesh",price: 14, distanceKm: 480,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-P-MH-1", crop: "Potato", market: "Pune APMC",       city: "Pune",        state: "Maharashtra",   price: 16, distanceKm: 210,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-P-DL-1", crop: "Potato", market: "Azadpur Mandi",   city: "Delhi",       state: "Delhi",         price: 15, distanceKm: 1200, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-P-KA-1", crop: "Potato", market: "Bengaluru APMC",  city: "Bengaluru",   state: "Karnataka",     price: 17, distanceKm: 900,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-P-GJ-1", crop: "Potato", market: "Ahmedabad APMC",  city: "Ahmedabad",   state: "Gujarat",       price: 15, distanceKm: 480,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-P-BR-1", crop: "Potato", market: "Patna Mandi",     city: "Patna",       state: "Bihar",         price: 14, distanceKm: 1500, trend: "down", updatedAt: new Date().toISOString() },
+
+  // ============================== WHEAT ==============================
+  { id: "P-W-PB-1", crop: "Wheat", market: "Ludhiana Mandi",   city: "Ludhiana",    state: "Punjab",        price: 28, distanceKm: 1450, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-W-PB-2", crop: "Wheat", market: "Amritsar Mandi",   city: "Amritsar",    state: "Punjab",        price: 29, distanceKm: 1550, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-W-HR-1", crop: "Wheat", market: "Karnal Mandi",     city: "Karnal",      state: "Haryana",       price: 27, distanceKm: 1300, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-W-HR-2", crop: "Wheat", market: "Hisar Mandi",      city: "Hisar",       state: "Haryana",       price: 26, distanceKm: 1350, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-W-UP-1", crop: "Wheat", market: "Kanpur Mandi",     city: "Kanpur Nagar",state: "Uttar Pradesh", price: 25, distanceKm: 1100, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-W-UP-2", crop: "Wheat", market: "Lucknow Mandi",    city: "Lucknow",     state: "Uttar Pradesh", price: 26, distanceKm: 1240, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-W-UP-3", crop: "Wheat", market: "Meerut Mandi",     city: "Meerut",      state: "Uttar Pradesh", price: 25, distanceKm: 1250, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-W-MP-1", crop: "Wheat", market: "Indore Mandi",     city: "Indore",      state: "Madhya Pradesh",price: 26, distanceKm: 480,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-W-MP-2", crop: "Wheat", market: "Bhopal Mandi",     city: "Bhopal",      state: "Madhya Pradesh",price: 25, distanceKm: 620,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-W-RJ-1", crop: "Wheat", market: "Jaipur Mandi",     city: "Jaipur",      state: "Rajasthan",     price: 27, distanceKm: 1000, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-W-MH-1", crop: "Wheat", market: "Pune APMC",        city: "Pune",        state: "Maharashtra",   price: 27, distanceKm: 210,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-W-GJ-1", crop: "Wheat", market: "Ahmedabad APMC",   city: "Ahmedabad",   state: "Gujarat",       price: 27, distanceKm: 480,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-W-BR-1", crop: "Wheat", market: "Patna Mandi",      city: "Patna",       state: "Bihar",         price: 26, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-W-DL-1", crop: "Wheat", market: "Azadpur Mandi",    city: "Delhi",       state: "Delhi",         price: 28, distanceKm: 1200, trend: "up",   updatedAt: new Date().toISOString() },
+
+  // ============================== RICE ==============================
+  { id: "P-R-WB-1", crop: "Rice", market: "Kolkata Mandi",     city: "Kolkata",     state: "West Bengal",   price: 32, distanceKm: 1500, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-WB-2", crop: "Rice", market: "Bardhaman Mandi",   city: "Bardhaman",   state: "West Bengal",   price: 31, distanceKm: 1550, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-R-TN-1", crop: "Rice", market: "Thanjavur Mandi",   city: "Thanjavur",   state: "Tamil Nadu",    price: 33, distanceKm: 1200, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-TN-2", crop: "Rice", market: "Koyambedu Mandi",   city: "Chennai",     state: "Tamil Nadu",    price: 34, distanceKm: 1100, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-R-AP-1", crop: "Rice", market: "Guntur Mandi",      city: "Guntur",      state: "Andhra Pradesh",price: 30, distanceKm: 900,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-AP-2", crop: "Rice", market: "Vijayawada Mandi",  city: "Vijayawada",  state: "Andhra Pradesh",price: 31, distanceKm: 900,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-TG-1", crop: "Rice", market: "Hyderabad Mandi",   city: "Hyderabad",   state: "Telangana",     price: 32, distanceKm: 700,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-R-KA-1", crop: "Rice", market: "Bengaluru APMC",    city: "Bengaluru",   state: "Karnataka",     price: 34, distanceKm: 900,  trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-KL-1", crop: "Rice", market: "Kochi Mandi",       city: "Kochi",       state: "Keralam",       price: 36, distanceKm: 1300, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-OD-1", crop: "Rice", market: "Bhubaneswar Mandi", city: "Bhubaneswar", state: "Odisha",        price: 30, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-R-MP-1", crop: "Rice", market: "Indore Mandi",      city: "Indore",      state: "Madhya Pradesh",price: 30, distanceKm: 480,  trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-R-UP-1", crop: "Rice", market: "Lucknow Mandi",     city: "Lucknow",     state: "Uttar Pradesh", price: 29, distanceKm: 1240, trend: "flat", updatedAt: new Date().toISOString() },
+  { id: "P-R-UP-2", crop: "Rice", market: "Varanasi Mandi",    city: "Varanasi",    state: "Uttar Pradesh", price: 30, distanceKm: 1360, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-AS-1", crop: "Rice", market: "Guwahati Mandi",    city: "Guwahati",    state: "Assam",         price: 35, distanceKm: 2200, trend: "up",   updatedAt: new Date().toISOString() },
+  { id: "P-R-BR-1", crop: "Rice", market: "Patna Mandi",       city: "Patna",       state: "Bihar",         price: 31, distanceKm: 1500, trend: "flat", updatedAt: new Date().toISOString() },
 ];
 
 const listings: Listing[] = [

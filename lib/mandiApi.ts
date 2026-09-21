@@ -167,11 +167,6 @@ export interface FetchOptions {
   offset?: number;
 }
 
-// -----------------------------------------------------------------------------
-// IMPORTANT: This function must ONLY be called server-side, because it uses
-// the API key from process.env. Do not call it directly from a client
-// component — go through /api/mandi instead.
-// -----------------------------------------------------------------------------
 export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
   const apiKey = process.env.DATA_GOV_API_KEY;
   if (!apiKey) {
@@ -180,7 +175,7 @@ export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
   }
 
   const aliases = COMMODITY_ALIASES[opts.crop];
-  const limit = Math.min(opts.limit ?? 500, 1000);
+  const limit = Math.min(opts.limit ?? 500, 2000);
   const offset = opts.offset ?? 0;
 
   const govtState = opts.state ? toGovtStateName(opts.state) : undefined;
@@ -189,49 +184,158 @@ export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
       ? toGovtDistrictName(opts.district)
       : undefined;
 
-  for (const alias of aliases) {
-    const params = new URLSearchParams();
-    params.set("api-key", apiKey);
-    params.set("format", "json");
-    params.set("limit", String(limit));
-    params.set("offset", String(offset));
-    params.set("filters[commodity]", alias);
-    if (govtState) params.set("filters[state.keyword]", govtState);
-    if (district) params.set("filters[district]", district);
+  // ---------------------------------------------------------------------
+  // STRATEGY: The government API's filter engine is currently broken
+  // (returns total:0 for any filters[...] query). So we fetch a large
+  // unfiltered page and filter locally. We still TRY the filtered query
+  // first in case the API recovers.
+  // ---------------------------------------------------------------------
 
-    const url = `${BASE}?${params.toString()}`;
+  for (const alias of aliases) {
+    // ---- Attempt 1: filtered query (may work again someday) ----
+    const filteredUrl = buildUrl(apiKey, {
+      limit,
+      offset,
+      commodity: alias,
+      state: govtState,
+      district,
+    });
+
     console.log(
-      `[mandiApi] GET crop=${alias} state=${govtState ?? "any"} district=${district ?? "any"}`,
+      `[mandiApi] filtered GET crop=${alias} state=${govtState ?? "any"} district=${district ?? "any"}`,
     );
 
-    let res: Response;
-    try {
-      res = await fetch(url, { next: { revalidate: 1800 } });
-    } catch (err) {
-      console.error(`[mandiApi] fetch threw for ${alias}:`, err);
+    const filtered = await tryFetch(filteredUrl, alias);
+    if (filtered.length > 0) {
+      console.log(`[mandiApi] ✓ ${filtered.length} records (filtered) for ${alias}`);
+      return filtered;
+    }
+
+    // ---- Attempt 2: unfiltered fetch + local filter ----
+    console.warn(
+      `[mandiApi] filtered query empty for ${alias} — falling back to unfiltered fetch + local filter`,
+    );
+
+    const unfilteredUrl = buildUrl(apiKey, {
+      limit: Math.min(2000, limit * 4), // fetch more since we'll filter down
+      offset: 0,
+      commodity: undefined, // NO commodity filter
+      state: undefined,
+      district: undefined,
+    });
+
+    const all = await tryFetch(unfilteredUrl, alias);
+    if (all.length === 0) {
+      console.warn(`[mandiApi] unfiltered fetch also empty for ${alias}`);
       continue;
     }
 
-    if (!res.ok) {
-      console.error(`[mandiApi] HTTP ${res.status} for ${alias}`);
-      continue;
-    }
+    console.log(`[mandiApi] unfiltered fetch: ${all.length} records — filtering locally`);
 
-    const data = (await res.json()) as ApiResponse;
-    if (!data.records || data.records.length === 0) {
-      console.warn(
-        `[mandiApi] 0 records for commodity=${alias} state=${govtState ?? "any"} district=${district ?? "any"}`,
+    // Local filter by commodity (map to our Crop enum)
+    const localFiltered = all.filter((p) => {
+      if (p.crop !== opts.crop) return false;
+      if (govtState && p.state !== govtState) return false;
+      if (district && p.city !== district) return false;
+      return true;
+    });
+
+    if (localFiltered.length > 0) {
+      console.log(
+        `[mandiApi] ✓ ${localFiltered.length} records (local-filtered) for ${alias}`,
       );
-      continue;
+      return localFiltered.slice(0, limit);
     }
 
-    return data.records.map((r, i) => normalize(r, i));
+    console.warn(
+      `[mandiApi] local filter yielded 0 for ${alias} (state=${govtState ?? "any"} district=${district ?? "any"})`,
+    );
   }
 
   return [];
 }
 
-function normalize(r: RawRecord, idx: number): Price {
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function buildUrl(
+  apiKey: string,
+  opts: {
+    limit: number;
+    offset: number;
+    commodity?: string;
+    state?: string;
+    district?: string;
+  },
+): string {
+  const params = new URLSearchParams();
+  params.set("api-key", apiKey);
+  params.set("format", "json");
+  params.set("limit", String(opts.limit));
+  params.set("offset", String(opts.offset));
+  if (opts.commodity) params.set("filters[commodity]", opts.commodity);
+  if (opts.state) params.set("filters[state.keyword]", opts.state);
+  if (opts.district) params.set("filters[district]", opts.district);
+  return `${BASE}?${params.toString()}`;
+}
+
+async function tryFetch(url: string, alias: string): Promise<Price[]> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      next: { revalidate: process.env.NODE_ENV === "production" ? 1800 : 0 },
+    });
+  } catch (err) {
+    console.error(`[mandiApi] fetch threw for ${alias}:`, err);
+    return [];
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(
+      `[mandiApi] HTTP ${res.status} for ${alias} — body: ${body.slice(0, 200)}`,
+    );
+    return [];
+  }
+
+  const raw = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    console.error(`[mandiApi] non-JSON response for ${alias}: ${raw.slice(0, 200)}`);
+    return [];
+  }
+
+  if (data?.error) {
+    console.error(`[mandiApi] UPSTREAM ERROR for ${alias}: ${data.error}`);
+    return [];
+  }
+
+  const records = Array.isArray(data?.records) ? data.records : [];
+  if (records.length === 0) {
+    console.warn(
+      `[mandiApi] 0 records for ${alias} (total=${data?.total}, count=${data?.count})`,
+    );
+    return [];
+  }
+
+  // Map → normalize (may return null for unknown commodities) → filter nulls
+  return records
+    .map((r: RawRecord, i: number) => normalize(r, i))
+    .filter((p): p is Price => p !== null);
+}
+
+// -----------------------------------------------------------------------------
+// normalize — returns Price | null. Returns null when the government
+// commodity name doesn't map to any of our known Crops. This prevents
+// "Ginger" / "Banana" / etc. from being silently mislabeled as Tomato.
+// -----------------------------------------------------------------------------
+function normalize(r: RawRecord, idx: number): Price | null {
+  const crop = mapCommodityToCrop(r.commodity);
+  if (!crop) return null;   // ← discard non-target commodities
+
   const coords = STATE_COORDS[r.state] ?? { lat: 20, lng: 78 };
   const distanceKm = haversineKm(ORIGIN, coords);
 
@@ -250,7 +354,7 @@ function normalize(r: RawRecord, idx: number): Price {
 
   return {
     id: `mandi-${idx}-${r.market}-${r.commodity}`.replace(/\s+/g, "-"),
-    crop: mapCommodityToCrop(r.commodity),
+    crop,   // ← use the local crop variable (never falls back to Tomato)
     market: r.market.trim(),
     city: r.district,
     state: r.state,
@@ -261,14 +365,19 @@ function normalize(r: RawRecord, idx: number): Price {
   };
 }
 
-function mapCommodityToCrop(commodity: string): Crop {
-  const c = commodity.toLowerCase();
+// -----------------------------------------------------------------------------
+// mapCommodityToCrop — returns null for unknown commodities.
+// Previously returned "Tomato" as a fallback, which caused Ginger / Banana /
+// other commodities to appear as "Tomato" records with wildly wrong prices.
+// -----------------------------------------------------------------------------
+function mapCommodityToCrop(commodity: string): Crop | null {
+  const c = commodity.toLowerCase().trim();
   if (c.startsWith("tomato")) return "Tomato";
   if (c.startsWith("onion"))  return "Onion";
   if (c.startsWith("potato")) return "Potato";
   if (c.startsWith("wheat"))  return "Wheat";
   if (c.includes("paddy") || c.startsWith("rice")) return "Rice";
-  return "Tomato";
+  return null;   // ← unknown commodity — discard, don't mislabel
 }
 
 // =============================================================================
