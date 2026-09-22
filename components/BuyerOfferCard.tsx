@@ -16,7 +16,7 @@ import { formatINR, cn } from "@/lib/utils";
 
 interface Props {
   buyer: Buyer;
-  listingId: string;
+  listingId: number | string;
   pricePerKg: number;
   quantityKg: number;
   message?: string;
@@ -37,8 +37,8 @@ export function BuyerOfferCard({
   const onAccept = async () => {
     setAccepting(true);
     try {
-      const order = await createOrder({
-        listingId,
+          const order = await createOrder({
+        listingId: Number(listingId),
         buyerId: buyer.id,
         pricePerKg,
         quantityKg,

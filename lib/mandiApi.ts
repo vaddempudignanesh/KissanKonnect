@@ -16,17 +16,20 @@
 //   only inside app/api/mandi/route.ts.
 // -----------------------------------------------------------------------------
 
-import type { Crop, Price } from "./db";
+import type { Crop, DbPrice as Price } from "./types";
 
 const BASE =
   "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070";
 
 const COMMODITY_ALIASES: Record<Crop, string[]> = {
-  Tomato: ["Tomato"],
-  Onion:  ["Onion"],
-  Potato: ["Potato"],
-  Wheat:  ["Wheat"],
-  Rice:   ["Rice", "Paddy(Dhan)(Common)"],
+  Tomato:    ["Tomato"],
+  Onion:     ["Onion"],
+  Potato:    ["Potato"],
+  Wheat:     ["Wheat"],
+  Rice:      ["Rice", "Paddy(Dhan)(Common)"],
+  Sugarcane: ["Sugarcane"],
+  Cotton:    ["Cotton"],
+  Soybean:   ["Soybean"],
 };
 
 // -----------------------------------------------------------------------------
@@ -233,7 +236,7 @@ export async function fetchMandiPrices(opts: FetchOptions): Promise<Price[]> {
     console.log(`[mandiApi] unfiltered fetch: ${all.length} records — filtering locally`);
 
     // Local filter by commodity (map to our Crop enum)
-    const localFiltered = all.filter((p) => {
+        const localFiltered = all.filter((p: Price) => {
       if (p.crop !== opts.crop) return false;
       if (govtState && p.state !== govtState) return false;
       if (district && p.city !== district) return false;
@@ -322,9 +325,12 @@ async function tryFetch(url: string, alias: string): Promise<Price[]> {
   }
 
   // Map → normalize (may return null for unknown commodities) → filter nulls
-  return records
-    .map((r: RawRecord, i: number) => normalize(r, i))
-    .filter((p): p is Price => p !== null);
+  // Map → normalize (may re
+  // turn null for unknown commodities) → filter nulls
+  const mapped: (Price | null)[] = records.map((r: RawRecord, i: number) =>
+    normalize(r, i)
+  );
+  return mapped.filter((p): p is Price => p !== null);
 }
 
 // -----------------------------------------------------------------------------
@@ -453,10 +459,10 @@ export function fuzzyFilterPrices(prices: Price[], query: string): Price[] {
   const q = query.trim();
   if (!q) return prices;
   const expanded = expandQuery(q);
-  const scored = prices
-    .map((p) => {
+    const scored = prices
+    .map((p: Price) => {
       const hay = `${p.market} ${p.city} ${p.state} ${p.crop}`;
-      const score = Math.max(...expanded.map((e) => fuzzyScore(e, hay)));
+                  const score = Math.max(...expanded.map((e: string) => fuzzyScore(e, hay)));
       return { p, score };
     })
     .filter(({ score }) => score > 0.45)

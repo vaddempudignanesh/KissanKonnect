@@ -32,9 +32,9 @@ export default function FarmerOrdersPage() {
     (async () => {
       const fid = farmer?.id ?? "F1";
       const all = await getOrders();
-      const mine = all.filter(o => o.farmerId === fid);
+           const mine = all.filter(o => o.farmerId === fid);
       const enriched = await Promise.all(
-        mine.map(async (o) => ({ ...o, buyer: await getBuyer(o.buyerId) }))
+        mine.map(async (o) => ({ ...o, buyer: await getBuyer(o.buyerId) ?? undefined }))
       );
       setOrders(enriched);
     })();

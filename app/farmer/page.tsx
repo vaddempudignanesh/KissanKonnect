@@ -133,9 +133,12 @@ export default function MarketPage() {
     const sorted = [...list];
     if (sort === "distance") sorted.sort((a, b) => a.distanceKm - b.distanceKm);
     else if (sort === "price") sorted.sort((a, b) => b.price - a.price);
-    else {
-      const rank = { up: 0, flat: 1, down: 2 } as const;
-      sorted.sort((a, b) => rank[a.trend] - rank[b.trend]);
+       else {
+      const rank: Record<"up" | "down" | "flat", number> = { up: 0, flat: 1, down: 2 };
+      sorted.sort((a, b) =>
+        rank[a.trend as "up" | "down" | "flat"] -
+        rank[b.trend as "up" | "down" | "flat"]
+      );
     }
     return sorted;
   }, [all, sort, query]);

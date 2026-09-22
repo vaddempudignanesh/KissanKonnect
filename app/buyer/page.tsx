@@ -24,8 +24,8 @@ export default function BuyerDashboard() {
       const bid = buyer?.id ?? "B1";
       const orders = (await getOrders()).filter(o => o.buyerId === bid);
       setMyOrders(orders);
-      setOpenListings((await getListings()).filter(l => l.status === "open"));
-    })();
+      setOpenListings((await getListings()).filter(l => l.status === "active"));
+        })();
   }, [buyer]);
 
   const totalSpent = myOrders.reduce((s, o) => s + o.totalAmount, 0);

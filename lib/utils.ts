@@ -1,5 +1,3 @@
-// lib/utils.ts
-// PURPOSE: Small helpers used everywhere. Keeps components clean.
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -9,10 +7,27 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatINR(n: number) {
   return new Intl.NumberFormat("en-IN", {
-    style: "currency", currency: "INR", maximumFractionDigits: 0,
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
   }).format(n);
 }
 
 export function formatNumber(n: number) {
   return new Intl.NumberFormat("en-IN").format(n);
+}
+
+export function calculateDistance(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number
+): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(a)));
 }

@@ -60,10 +60,12 @@ export default function ListProducePage() {
 
     setSubmitting(true);
     try {
-      await createListing({
+            await createListing({
         farmerId: farmer.id,
+        cropId: 0,
         crop,
         quantityKg: q,
+        qualityGrade: quality,
         quality,
         expectedPrice: p,
         village,

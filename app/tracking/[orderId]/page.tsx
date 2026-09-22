@@ -1,6 +1,3 @@
-// app/tracking/[orderId]/page.tsx
-// PURPOSE: Full order tracking page. Uses TruckMap + Timeline.
-//          Shows driver info, buyer info, escrow status, and payment release.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -14,8 +11,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { TruckMap } from "@/components/TruckMap";
 import { Timeline } from "@/components/Timeline";
 import { AnimatedButton } from "@/components/AnimatedButton";
-import { getOrder, getBuyer, getFarmer, Order, Buyer, Farmer } from "@/lib/db";
 import { formatINR } from "@/lib/utils";
+import type { DbOrder as Order, DbBuyer as Buyer, DbFarmer as Farmer } from "@/lib/types";
 
 export default function TrackingPage() {
   const params = useParams();
@@ -25,16 +22,33 @@ export default function TrackingPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [buyer, setBuyer] = useState<Buyer | null>(null);
   const [farmer, setFarmer] = useState<Farmer | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const o = await getOrder(orderId);
-      if (!o) return;
-      setOrder(o);
-      setBuyer((await getBuyer(o.buyerId)) ?? null);
-      setFarmer((await getFarmer(o.farmerId)) ?? null);
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (!res.ok) { setOrder(null); return; }
+        const data = await res.json();
+        setOrder(data.order);
+        setBuyer(data.buyer);
+        setFarmer(data.farmer);
+      } catch (e) {
+        console.error("[tracking] fetch failed", e);
+        setOrder(null);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [orderId]);
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 pt-10 pb-20 text-center text-[var(--kk-text-dim)]">
+        Loading order…
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -76,7 +90,7 @@ export default function TrackingPage() {
       <PageHeader
         badge={`Order ${order.id}`}
         badgeIcon={Truck}
-        title={`${order.crop} · ${order.quantityKg} kg`}
+        title={`${order.crop ?? order.crop_name ?? "Order"} · ${order.quantityKg} kg`}
         subtitle={`${farmer?.village ?? "Farm"}, ${farmer?.state ?? ""} → ${buyer?.city ?? "Buyer"}, ${buyer?.state ?? ""}`}
         actions={
           <AnimatedButton size="md" variant="secondary">
@@ -85,40 +99,22 @@ export default function TrackingPage() {
         }
       />
 
-      {/* Top summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <InfoCard
-          icon={Package}
-          label="Total amount"
-          value={formatINR(order.totalAmount)}
-          accent="#A9E34B"
-        />
-        <InfoCard
-          icon={IndianRupee}
-          label="Net to farmer"
-          value={formatINR(order.netToFarmer)}
-          accent="#F4A300"
-        />
+        <InfoCard icon={Package} label="Total amount" value={formatINR(order.totalAmount)} accent="#A9E34B" />
+        <InfoCard icon={IndianRupee} label="Net to farmer" value={formatINR(order.netToFarmer)} accent="#F4A300" />
         <InfoCard
           icon={ShieldCheck}
           label="Escrow status"
           value={order.status === "delivered" || order.status === "paid" ? "Released" : "Held"}
           accent="#2E8B57"
         />
-        <InfoCard
-          icon={Truck}
-          label="Truck"
-          value={order.truck.number}
-          accent="#C75B39"
-        />
+        <InfoCard icon={Truck} label="Truck" value={order.truck.number} accent="#C75B39" />
       </div>
 
-      {/* Map + timeline */}
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <TruckMap truck={order.truck} />
 
-          {/* Driver card */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -140,7 +136,6 @@ export default function TrackingPage() {
             </AnimatedButton>
           </motion.div>
 
-          {/* Address row */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="kk-card p-5">
               <div className="text-xs uppercase tracking-widest text-[var(--kk-text-dim)] mb-2">

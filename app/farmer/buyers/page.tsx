@@ -36,14 +36,14 @@ export default function FarmerBuyersPage() {
       setListing(first);
       if (!first) return;
 
-      const offers = await getOffersForListing(first.id);
+            const offers = await getOffersForListing(first.id);
       const withBuyers = await Promise.all(
         offers.map(async (o) => {
           const b = await getBuyer(o.buyerId);
           return b ? { offer: o, buyer: b } : null;
         })
       );
-      setRows(withBuyers.filter(Boolean) as any);
+      setRows(withBuyers.filter((r): r is NonNullable<typeof r> => r !== null));
     })();
   }, [sessionFarmer]);
 
@@ -107,7 +107,7 @@ export default function FarmerBuyersPage() {
 
       <div className="grid md:grid-cols-2 gap-4">
         {sorted.map((r, i) => (
-          <BuyerOfferCard
+                    <BuyerOfferCard
             key={r.offer.id}
             buyer={r.buyer}
             listingId={listing.id}

@@ -28,9 +28,9 @@ export default function BuyerOrdersPage() {
   useEffect(() => {
     (async () => {
       const bid = buyer?.id ?? "B1";
-      const mine = (await getOrders()).filter(o => o.buyerId === bid);
+         const mine = (await getOrders()).filter(o => o.buyerId === bid);
       const enriched = await Promise.all(
-        mine.map(async (o) => ({ ...o, farmer: await getFarmer(o.farmerId) }))
+        mine.map(async (o) => ({ ...o, farmer: await getFarmer(o.farmerId) ?? undefined }))
       );
       setRows(enriched);
     })();

@@ -15,8 +15,8 @@ export function TruckMap({ truck }: Props) {
   const current = Math.min(truck.currentStopIndex, stops.length - 1);
 
   // Map lat/lng to SVG viewport
-  const lats = stops.map(s => s.lat);
-  const lngs = stops.map(s => s.lng);
+  const lats = stops.map((s: any) => s.lat);
+  const lngs = stops.map((s: any) => s.lng);
   const minLat = Math.min(...lats) - 1;
   const maxLat = Math.max(...lats) + 1;
   const minLng = Math.min(...lngs) - 1;
@@ -69,7 +69,7 @@ export function TruckMap({ truck }: Props) {
           />
 
           {/* Stops */}
-          {stops.map((s, i) => {
+                    {stops.map((s: any, i: number) => {
             const reached = i <= current;
             return (
               <g key={s.name}>

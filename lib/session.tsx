@@ -1,21 +1,19 @@
-// lib/session.ts
-// PURPOSE: Fake "login" for the SIH demo.
-//          Anyone can pick Farmer or Buyer and be logged in.
-//          Session persists across page reloads via localStorage.
-//          REPLACE THIS with real auth (NextAuth / Clerk / etc.) later.
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Farmer, Buyer, getFarmer, getBuyer, getFarmers, getBuyers } from "./db";
+import {
+  createContext, useContext, useEffect, useState, ReactNode,
+} from "react";
+import type { DbFarmer, DbBuyer } from "./types";
 
 export type Role = "farmer" | "buyer" | null;
 
 interface Session {
   role: Role;
-  farmer?: Farmer;
-  buyer?: Buyer;
-  loginAsFarmer: (id?: string) => Promise<void>;
-  loginAsBuyer: (id?: string) => Promise<void>;
+  farmer?: DbFarmer;
+  buyer?: DbBuyer;
+  ready: boolean;
+  loginAsFarmer: (id?: number) => Promise<void>;
+  loginAsBuyer: (id?: number) => Promise<void>;
   logout: () => void;
 }
 
@@ -23,38 +21,51 @@ const Ctx = createContext<Session | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>(null);
-  const [farmer, setFarmer] = useState<Farmer | undefined>();
-  const [buyer, setBuyer] = useState<Buyer | undefined>();
+  const [farmer, setFarmer] = useState<DbFarmer | undefined>();
+  const [buyer, setBuyer] = useState<DbBuyer | undefined>();
+  const [ready, setReady] = useState(false);
 
-  // Restore session on load.
   useEffect(() => {
-    const savedRole = localStorage.getItem("kk-role") as Role;
-    const savedId = localStorage.getItem("kk-id");
-    if (savedRole === "farmer" && savedId) {
-      setRole("farmer");
-      getFarmer(savedId).then(setFarmer);
-    } else if (savedRole === "buyer" && savedId) {
-      setRole("buyer");
-      getBuyer(savedId).then(setBuyer);
-    }
+    (async () => {
+      try {
+        const r = localStorage.getItem("kk-role") as Role;
+        const idStr = localStorage.getItem("kk-id");
+        if (r && idStr) {
+          const id = Number(idStr);
+          if (r === "farmer") {
+            const res = await fetch(`/api/session?role=farmer&id=${id}`);
+            const j = await res.json();
+            if (j.farmer) { setRole("farmer"); setFarmer(j.farmer); }
+          } else if (r === "buyer") {
+            const res = await fetch(`/api/session?role=buyer&id=${id}`);
+            const j = await res.json();
+            if (j.buyer) { setRole("buyer"); setBuyer(j.buyer); }
+          }
+        }
+      } catch (e) {
+        console.warn("[session] restore failed", e);
+      } finally {
+        setReady(true);
+      }
+    })();
   }, []);
 
-  const loginAsFarmer = async (id?: string) => {
-    const list = await getFarmers();
-    const f = id ? await getFarmer(id) : list[0];
-    if (!f) return;
-    setRole("farmer"); setFarmer(f); setBuyer(undefined);
+  const loginAsFarmer = async (id?: number) => {
+    const res = await fetch(`/api/session?role=farmer${id ? `&id=${id}` : ""}`);
+    const j = await res.json();
+    if (!j.farmer) return;
+    setRole("farmer"); setFarmer(j.farmer); setBuyer(undefined);
     localStorage.setItem("kk-role", "farmer");
-    localStorage.setItem("kk-id", f.id);
+    localStorage.setItem("kk-id", String(j.farmer.id));
   };
 
-  const loginAsBuyer = async (id?: string) => {
-    const list = await getBuyers();
-    const b = id ? await getBuyer(id) : list[0];
-    if (!b) return;
-    setRole("buyer"); setBuyer(b); setFarmer(undefined);
+  const loginAsBuyer = async (id?: number) => {
+    const res = await fetch(`/api/session?role=buyer${id ? `&id=${id}` : ""}`);
+    const j = await res.json();
+    if (!j.buyer) return;
+    setRole("buyer"); setBuyer(j.buyer); setFarmer(undefined);
     localStorage.setItem("kk-role", "buyer");
-    localStorage.setItem("kk-id", b.id);
+    localStorage.setItem("kk-id", String(j.buyer.id));
   };
 
   const logout = () => {
@@ -64,7 +75,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ role, farmer, buyer, loginAsFarmer, loginAsBuyer, logout }}>
+    <Ctx.Provider value={{ role, farmer, buyer, ready, loginAsFarmer, loginAsBuyer, logout }}>
       {children}
     </Ctx.Provider>
   );
