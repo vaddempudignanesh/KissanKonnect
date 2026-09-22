@@ -1,5 +1,5 @@
 // app/market/page.tsx
-// PURPOSE: Market prices page — dynamic fetching by State + District with clean search suggestions.
+// PURPOSE: Market prices page — dynamic fetching by State + District.
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -32,22 +32,20 @@ export default function MarketPage() {
   const [source, setSource] = useState<"govt" | "seed" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackNote, setFallbackNote] = useState<string | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
 
   const [crop, setCrop] = useState<Crop>("Tomato");
   const [sort, setSort] = useState<SortMode>("distance");
 
-  // State + District selection parameters
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string>("All");
   const [stateQuery, setStateQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Optional client-side refinement search on fetched records
   const [query, setQuery] = useState("");
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -58,22 +56,17 @@ export default function MarketPage() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // Filter state suggestions case-insensitively
   const stateSuggestions = useMemo(() => {
     const q = stateQuery.trim().toLowerCase();
     if (!q) return INDIA_STATES_DATA;
     return INDIA_STATES_DATA.filter((s) => s.state.toLowerCase().includes(q));
   }, [stateQuery]);
 
-  // Districts for the currently selected state
   const districtsForState = useMemo(() => {
     if (!selectedState) return [];
     return INDIA_STATES_DATA.find((s) => s.state === selectedState)?.districts ?? [];
   }, [selectedState]);
 
-  // -------------------------------------------------------------------------
-  // Dynamic Fetching based on Crop, State, and District parameters
-  // -------------------------------------------------------------------------
   const fetchPrices = useCallback(async (
     targetCrop: Crop,
     targetState: string | null,
@@ -81,6 +74,7 @@ export default function MarketPage() {
   ) => {
     setLoading(true);
     setError(null);
+    setFallbackNote(null);
 
     try {
       const params = new URLSearchParams();
@@ -92,16 +86,25 @@ export default function MarketPage() {
       }
 
       const url = `/api/mandi?${params.toString()}`;
+      console.log("[market] fetching", url);
+
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = (await res.json()) as ApiResponse;
+      console.log("[market] received", data.count ?? data.prices.length, "records from", data.source);
+
       setAll(data.prices ?? []);
       setSource(data.source);
       setLastFetchedAt(Date.now());
+      setFallbackNote(data.note ?? null);
 
-      if (data.prices.length === 0) {
-        setError(`No records found for ${targetCrop}${targetState ? ` in ${targetState}` : ""}${targetDistrict !== "All" ? ` / ${targetDistrict}` : ""}.`);
+      if (!data.prices || data.prices.length === 0) {
+        setError(
+          `No records found for ${targetCrop}${
+            targetState ? ` in ${targetState}` : ""
+          }${targetDistrict !== "All" ? ` / ${targetDistrict}` : ""}.`,
+        );
       }
     } catch (err) {
       console.error("[market] fetch error:", err);
@@ -112,28 +115,25 @@ export default function MarketPage() {
     }
   }, []);
 
-  // Trigger fetch whenever server-side filters change
   useEffect(() => {
     fetchPrices(crop, selectedState, selectedDistrict);
   }, [crop, selectedState, selectedDistrict, fetchPrices]);
 
-  // Reset district selection when state changes
   useEffect(() => {
     setSelectedDistrict("All");
   }, [selectedState]);
 
-  // -------------------------------------------------------------------------
-  // Apply secondary filters and sorting on fetched data
-  // -------------------------------------------------------------------------
   const visible = useMemo(() => {
     let list = query.trim() ? fuzzyFilterPrices(all, query) : all;
-
     const sorted = [...list];
     if (sort === "distance") sorted.sort((a, b) => a.distanceKm - b.distanceKm);
     else if (sort === "price") sorted.sort((a, b) => b.price - a.price);
     else {
-      const rank = { up: 0, flat: 1, down: 2 } as const;
-      sorted.sort((a, b) => rank[a.trend] - rank[b.trend]);
+      const rank: Record<"up" | "down" | "flat", number> = { up: 0, flat: 1, down: 2 };
+      sorted.sort((a, b) =>
+        rank[a.trend as "up" | "down" | "flat"] -
+        rank[b.trend as "up" | "down" | "flat"]
+      );
     }
     return sorted;
   }, [all, sort, query]);
@@ -144,7 +144,14 @@ export default function MarketPage() {
     if (!visible.length) return 0;
     return Math.round(visible.reduce((s, p) => s + p.price, 0) / visible.length);
   }, [visible]);
-  const highestRow = useMemo(() => [...visible].sort((a, b) => b.price - a.price)[0], [visible]);
+
+  const cacheAgeLabel = useMemo(() => {
+    if (!lastFetchedAt) return "";
+    const mins = Math.round((Date.now() - lastFetchedAt) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.round(mins / 60)}h ago`;
+  }, [lastFetchedAt]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-20">
@@ -155,14 +162,22 @@ export default function MarketPage() {
         subtitle="Select a state and district to query precise agricultural market rates."
         actions={
           <div className="flex items-center gap-2">
-            <span className={cn(
-              "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border",
-              loading
-                ? "bg-[rgba(244,163,0,0.1)] text-[var(--kk-amber)] border-[rgba(244,163,0,0.3)]"
-                : "bg-[rgba(169,227,75,0.1)] text-[var(--kk-lime)] border-[rgba(169,227,75,0.3)]"
-            )}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border",
+                loading
+                  ? "bg-[rgba(96,165,250,0.1)] text-[var(--kk-amber)] border-[rgba(96,165,250,0.3)]"
+                  : source === "govt"
+                    ? "bg-[rgba(59,130,246,0.1)] text-[var(--kk-lime)] border-[rgba(59,130,246,0.3)]"
+                    : "bg-[rgba(96,165,250,0.1)] text-[var(--kk-amber)] border-[rgba(96,165,250,0.3)]",
+              )}
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              {loading ? "Fetching..." : source === "govt" ? `Live · ${visible.length} rows` : "Cached"}
+              {loading
+                ? "Fetching…"
+                : source === "govt"
+                  ? `Live · ${visible.length} rows`
+                  : `Cached · ${cacheAgeLabel}`}
             </span>
             <button
               onClick={() => fetchPrices(crop, selectedState, selectedDistrict)}
@@ -179,7 +194,19 @@ export default function MarketPage() {
         }
       />
 
-      {/* State Picker with Case-Insensitive Search Suggestions */}
+      {fallbackNote && !loading && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 px-4 py-3 rounded-2xl border border-[var(--kk-amber)]
+                     bg-[rgba(96,165,250,0.08)] text-sm text-[var(--kk-amber)]
+                     flex items-start gap-2"
+        >
+          <span className="text-lg leading-none">💡</span>
+          <span>{fallbackNote}</span>
+        </motion.div>
+      )}
+
       <div className="mt-8 relative" ref={dropdownRef}>
         <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--kk-text-dim)] mb-2">
           State (Type e.g., "Andhra", "Maharashtra", "delhi")
@@ -197,7 +224,7 @@ export default function MarketPage() {
                        placeholder:text-[var(--kk-text-dim)]/60
                        focus:outline-none focus:border-[var(--kk-lime)] transition-all"
           />
-          {selectedState && (
+          {selectedState ? (
             <button
               onClick={() => { setSelectedState(null); setStateQuery(""); }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--kk-text-dim)] hover:text-[var(--kk-terracotta)]"
@@ -205,8 +232,7 @@ export default function MarketPage() {
             >
               <X className="w-4 h-4" />
             </button>
-          )}
-          {!selectedState && (
+          ) : (
             <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-[var(--kk-text-dim)] pointer-events-none" />
           )}
         </div>
@@ -237,18 +263,19 @@ export default function MarketPage() {
                   </button>
                 ))
               ) : (
-                <div className="px-4 py-3 text-sm text-[var(--kk-text-dim)]">No states match "{stateQuery}"</div>
+                <div className="px-4 py-3 text-sm text-[var(--kk-text-dim)]">
+                  No states match "{stateQuery}"
+                </div>
               )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* District Selector Cards */}
       {selectedState && districtsForState.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
           <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--kk-text-dim)] mb-3">
-            Select District in {selectedState} (Query updates instantly)
+            Select District in {selectedState}
           </label>
           <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 rounded-2xl bg-[var(--kk-surface)] border border-[var(--kk-border)]">
             <button
@@ -256,7 +283,7 @@ export default function MarketPage() {
               className={cn(
                 "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
                 selectedDistrict === "All"
-                  ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)] shadow-lg"
+                  ? "bg-[var(--kk-lime)] text-white border-[var(--kk-lime)] shadow-lg"
                   : "bg-[var(--kk-surface-2)] text-[var(--kk-text-dim)] border-[var(--kk-border)] hover:border-[var(--kk-lime)]"
               )}
             >
@@ -269,7 +296,7 @@ export default function MarketPage() {
                 className={cn(
                   "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
                   selectedDistrict === d
-                    ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)] shadow-lg"
+                    ? "bg-[var(--kk-lime)] text-white border-[var(--kk-lime)] shadow-lg"
                     : "bg-[var(--kk-surface-2)] text-[var(--kk-text-dim)] border-[var(--kk-border)] hover:border-[var(--kk-lime)]"
                 )}
               >
@@ -280,7 +307,6 @@ export default function MarketPage() {
         </motion.div>
       )}
 
-      {/* Crop Filter Bar */}
       <div className="mt-8 flex flex-wrap items-center gap-2">
         <span className="text-sm text-[var(--kk-text-dim)] flex items-center gap-1 mr-2">
           <Filter className="w-4 h-4" /> Crop:
@@ -292,7 +318,7 @@ export default function MarketPage() {
             className={cn(
               "px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border",
               crop === c
-                ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)] shadow-[0_0_20px_rgba(169,227,75,0.4)]"
+                ? "bg-[var(--kk-lime)] text-white border-[var(--kk-lime)] shadow-[0_0_20px_rgba(59,130,246,0.4)]"
                 : "border-[var(--kk-border)] text-[var(--kk-text-dim)] hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)]"
             )}
           >
@@ -301,12 +327,56 @@ export default function MarketPage() {
         ))}
       </div>
 
-      {/* Stat Strip */}
+      <div className="mt-6 relative">
+        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--kk-text-dim)]" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter loaded results — try 'Nashik', 'Nasik', 'Bengaluru'…"
+          className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[var(--kk-surface-2)]
+                     border border-[var(--kk-border)] text-[var(--kk-text)]
+                     placeholder:text-[var(--kk-text-dim)]/60
+                     focus:outline-none focus:border-[var(--kk-lime)] transition-all"
+        />
+        {query && (
+          <button
+            onClick={() => setQuery("")}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[var(--kk-text-dim)] hover:text-[var(--kk-lime)]"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <span className="text-sm text-[var(--kk-text-dim)] mr-2">Sort by:</span>
+        {([
+          { id: "distance", label: "Nearest first", icon: MapPin },
+          { id: "price",    label: "Highest ₹",     icon: IndianRupee },
+          { id: "trend",    label: "Rising",        icon: TrendingUp },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setSort(id)}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 border",
+              sort === id
+                ? "bg-[var(--kk-green)] text-white border-[var(--kk-green)]"
+                : "border-[var(--kk-border)] text-[var(--kk-text-dim)] hover:border-[var(--kk-green-light)]"
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-        <DashboardStat emoji="🏬" value={visible.length} label="Mandis found" accent="#2E8B57" delay={0} />
-        <DashboardStat emoji="💎" value={highest} label="Best ₹/kg" prefix="₹" accent="#A9E34B" delay={0.05} />
-        <DashboardStat emoji="📊" value={avgPrice} label="Avg ₹/kg" prefix="₹" accent="#F4A300" delay={0.1} />
-        <DashboardStat emoji="📉" value={lowest} label="Lowest ₹/kg" prefix="₹" accent="#C75B39" delay={0.15} />
+        <DashboardStat emoji="🏬" value={visible.length} label="Mandis found" accent="#3B82F6" delay={0} />
+        <DashboardStat emoji="💎" value={highest} label="Best ₹/kg" prefix="₹" accent="#60A5FA" delay={0.05} />
+        <DashboardStat emoji="📊" value={avgPrice} label="Avg ₹/kg" prefix="₹" accent="#93C5FD" delay={0.1} />
+        <DashboardStat emoji="📉" value={lowest} label="Lowest ₹/kg" prefix="₹" accent="#64748B" delay={0.15} />
       </div>
 
       {loading && (
@@ -314,7 +384,7 @@ export default function MarketPage() {
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
           Fetching live records for {crop}
           {selectedState ? ` in ${selectedState}` : ""}
-          {selectedDistrict !== "All" ? ` / ${selectedDistrict}` : ""}...
+          {selectedDistrict !== "All" ? ` / ${selectedDistrict}` : ""}…
         </div>
       )}
 
@@ -322,6 +392,12 @@ export default function MarketPage() {
         <div className="mt-16 kk-card p-8 text-center border-[var(--kk-terracotta)]">
           <WifiOff className="w-8 h-8 text-[var(--kk-terracotta)] mx-auto mb-3" />
           <div className="text-sm text-[var(--kk-text-dim)]">{error}</div>
+          <button
+            onClick={() => fetchPrices(crop, selectedState, selectedDistrict)}
+            className="mt-4 px-4 py-2 rounded-xl border border-[var(--kk-border)] text-sm hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)] transition-colors"
+          >
+            Try again
+          </button>
         </div>
       )}
 

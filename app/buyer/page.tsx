@@ -50,10 +50,10 @@ export default function BuyerDashboard() {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <DashboardStat emoji="💸" value={totalSpent} label="Total spent" prefix="₹" accent="#F4A300" delay={0} />
-        <DashboardStat emoji="📦" value={myOrders.length} label="Orders placed" accent="#A9E34B" delay={0.05} />
-        <DashboardStat emoji="🌾" value={openListings.length} label="Listings available" accent="#2E8B57" delay={0.1} />
-        <DashboardStat emoji="🚚" value={myOrders.filter(o => o.status === "in_transit").length} label="In transit" accent="#C75B39" delay={0.15} />
+        <DashboardStat emoji="💸" value={totalSpent} label="Total spent" prefix="₹" accent="#3B82F6" delay={0} />
+        <DashboardStat emoji="📦" value={myOrders.length} label="Orders placed" accent="#60A5FA" delay={0.05} />
+        <DashboardStat emoji="🌾" value={openListings.length} label="Listings available" accent="#93C5FD" delay={0.1} />
+        <DashboardStat emoji="🚚" value={myOrders.filter(o => o.status === "in_transit").length} label="In transit" accent="#64748B" delay={0.15} />
       </div>
 
       <div className="grid md:grid-cols-3 gap-4 mt-10">
@@ -71,7 +71,7 @@ export default function BuyerDashboard() {
             onClick={() => router.push(a.href)}
             className="kk-card p-6 text-left group"
           >
-            <div className="p-3 rounded-xl bg-[var(--kk-amber)]/20 text-[var(--kk-amber)] w-fit group-hover:scale-110 transition-transform">
+            <div className="p-3 rounded-xl bg-[var(--kk-amber)]/15 text-[var(--kk-amber)] w-fit group-hover:scale-110 transition-transform">
               <a.icon className="w-5 h-5" />
             </div>
             <h3 className="mt-4 font-semibold">{a.title}</h3>

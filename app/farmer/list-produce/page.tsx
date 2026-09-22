@@ -1,7 +1,5 @@
 // app/farmer/list-produce/page.tsx
 // PURPOSE: Form for the farmer to create a new produce listing.
-//   Writes to the in-memory db via createListing() and navigates to the
-//   Buyers page for the freshly-created listing.
 "use client";
 
 import { useState } from "react";
@@ -117,7 +115,7 @@ export default function ListProducePage() {
                     className={cn(
                       "p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
                       active
-                        ? "border-[var(--kk-lime)] bg-[var(--kk-lime)]/10 shadow-[0_0_30px_rgba(169,227,75,0.25)]"
+                        ? "border-[var(--kk-lime)] bg-[var(--kk-lime)]/10 shadow-[0_0_30px_rgba(59,130,246,0.25)]"
                         : "border-[var(--kk-border)] hover:border-[var(--kk-green-light)]"
                     )}
                   >
@@ -177,7 +175,7 @@ export default function ListProducePage() {
                         active ? "border-[var(--kk-lime)] bg-[var(--kk-lime)]" : "border-[var(--kk-border)]"
                       )}
                     >
-                      {active && <CheckCircle2 className="w-4 h-4 text-[#0A0F0D]" />}
+                      {active && <CheckCircle2 className="w-4 h-4 text-white" />}
                     </div>
                     <div>
                       <div className={cn("font-medium", active && "text-[var(--kk-lime)]")}>{q.label}</div>
@@ -284,7 +282,7 @@ function Section({ title, icon: Icon, children }: any) {
       className="kk-card p-6"
     >
       <div className="flex items-center gap-2 mb-5">
-        <div className="p-2 rounded-lg bg-[var(--kk-green)] text-[var(--kk-lime)]">
+        <div className="p-2 rounded-lg bg-[var(--kk-lime)]/10 text-[var(--kk-lime)]">
           <Icon className="w-4 h-4" />
         </div>
         <h3 className="font-semibold">{title}</h3>

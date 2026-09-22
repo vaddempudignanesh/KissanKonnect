@@ -1,6 +1,5 @@
 // app/buyer/listings/page.tsx
-// PURPOSE: Browse all farmer listings. Filter by crop. Click to bid (creates
-//          an offer on the listing via createOrder for the demo).
+// PURPOSE: Browse all farmer listings. Filter by crop.
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -66,7 +65,7 @@ export default function BuyerListingsPage() {
             className={cn(
               "px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all",
               crop === c
-                ? "bg-[var(--kk-amber)] text-[#0A0F0D] border-[var(--kk-amber)]"
+                ? "bg-[var(--kk-amber)] text-[#0B0F19] border-[var(--kk-amber)]"
                 : "border-[var(--kk-border)] text-[var(--kk-text-dim)] hover:border-[var(--kk-amber)] hover:text-[var(--kk-amber)]"
             )}
           >

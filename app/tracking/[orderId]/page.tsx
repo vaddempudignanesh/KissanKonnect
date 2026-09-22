@@ -100,15 +100,15 @@ export default function TrackingPage() {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <InfoCard icon={Package} label="Total amount" value={formatINR(order.totalAmount)} accent="#A9E34B" />
-        <InfoCard icon={IndianRupee} label="Net to farmer" value={formatINR(order.netToFarmer)} accent="#F4A300" />
+        <InfoCard icon={Package} label="Total amount" value={formatINR(order.totalAmount)} accent="#3B82F6" />
+        <InfoCard icon={IndianRupee} label="Net to farmer" value={formatINR(order.netToFarmer)} accent="#60A5FA" />
         <InfoCard
           icon={ShieldCheck}
           label="Escrow status"
           value={order.status === "delivered" || order.status === "paid" ? "Released" : "Held"}
-          accent="#2E8B57"
+          accent="#93C5FD"
         />
-        <InfoCard icon={Truck} label="Truck" value={order.truck.number} accent="#C75B39" />
+        <InfoCard icon={Truck} label="Truck" value={order.truck.number} accent="#64748B" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -121,7 +121,7 @@ export default function TrackingPage() {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="kk-card p-6 flex items-center gap-5"
           >
-            <div className="w-14 h-14 rounded-2xl bg-[var(--kk-green)] text-[var(--kk-lime)] flex items-center justify-center">
+            <div className="w-14 h-14 rounded-2xl bg-[var(--kk-lime)]/10 text-[var(--kk-lime)] flex items-center justify-center">
               <User className="w-6 h-6" />
             </div>
             <div className="flex-1">

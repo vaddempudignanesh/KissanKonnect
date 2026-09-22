@@ -1,7 +1,4 @@
 // app/farmer/layout.tsx
-// PURPOSE: Layout for all farmer pages.
-//   • Guards: if the session role isn't "farmer", redirect to home.
-//   • Renders a sub-nav (Dashboard / List Produce / Buyers / Orders).
 "use client";
 
 import { useEffect } from "react";
@@ -25,20 +22,14 @@ export default function FarmerLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
 
   useEffect(() => {
-    // Demo-friendly: no hard redirect. If not logged in, auto-login as farmer.
-    // Real auth would replace this with a redirect to /login.
     if (role !== "farmer") {
-      const t = setTimeout(() => {
-        // nothing — we let pages render for demo. Uncomment below for strictness:
-        // router.push("/");
-      }, 0);
+      const t = setTimeout(() => {}, 0);
       return () => clearTimeout(t);
     }
   }, [role, router]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-20">
-      {/* Sub-nav */}
       <div className="flex flex-wrap items-center gap-2 mb-8">
         {NAV.map((n) => {
           const active = pathname === n.href;
@@ -47,10 +38,9 @@ export default function FarmerLayout({ children }: { children: React.ReactNode }
               key={n.href}
               href={n.href}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all",
-                "border",
+                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border",
                 active
-                  ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)] shadow-[0_0_20px_rgba(169,227,75,0.3)]"
+                  ? "bg-[var(--kk-lime)] text-white border-[var(--kk-lime)] shadow-[0_0_20px_rgba(59,130,246,0.35)]"
                   : "border-[var(--kk-border)] text-[var(--kk-text-dim)] hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)]"
               )}
             >
@@ -61,7 +51,6 @@ export default function FarmerLayout({ children }: { children: React.ReactNode }
         })}
       </div>
 
-      {/* Page content */}
       <motion.div
         key={pathname}
         initial={{ opacity: 0, y: 12 }}

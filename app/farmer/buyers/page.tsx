@@ -1,7 +1,5 @@
 // app/farmer/buyers/page.tsx
-// PURPOSE: Offers page. Farmer sees every buyer interested in their listing,
-//          sorted by price (best first). Accepting an offer creates an order
-//          and redirects to tracking.
+// PURPOSE: Offers page. Farmer sees every buyer interested in their listing.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -95,7 +93,7 @@ export default function FarmerBuyersPage() {
             className={cn(
               "px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 border",
               sort === id
-                ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)]"
+                ? "bg-[var(--kk-lime)] text-white border-[var(--kk-lime)]"
                 : "border-[var(--kk-border)] text-[var(--kk-text-dim)] hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)]"
             )}
           >

@@ -13,11 +13,11 @@ import { getOrders, getFarmer, Order, Farmer } from "@/lib/db";
 import { formatINR, cn } from "@/lib/utils";
 
 const STATUS_COLOR: Record<Order["status"], string> = {
-  confirmed:  "bg-[rgba(244,163,0,0.12)] text-[var(--kk-amber)]",
-  picked_up:  "bg-[rgba(46,139,87,0.15)]  text-[var(--kk-green-light)]",
-  in_transit: "bg-[rgba(199,91,57,0.15)]  text-[var(--kk-terracotta)]",
-  delivered:  "bg-[rgba(169,227,75,0.15)] text-[var(--kk-lime)]",
-  paid:       "bg-[rgba(169,227,75,0.2)]  text-[var(--kk-lime)]",
+  confirmed:  "bg-[rgba(96,165,250,0.12)] text-[var(--kk-amber)]",
+  picked_up:  "bg-[rgba(59,130,246,0.15)] text-[var(--kk-lime)]",
+  in_transit: "bg-[rgba(59,130,246,0.20)] text-[var(--kk-lime)]",
+  delivered:  "bg-[rgba(59,130,246,0.25)] text-[var(--kk-lime)]",
+  paid:       "bg-[rgba(59,130,246,0.30)] text-[var(--kk-lime)]",
 };
 
 export default function BuyerOrdersPage() {
