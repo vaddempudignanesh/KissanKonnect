@@ -3,6 +3,7 @@ import { query, queryOne } from './db-client';
 import { calculateDistance } from './utils';
 import type {
   Crop, DbFarmer, DbBuyer, DbPrice, DbListing, DbOffer, DbOrder, DbOrderEvent, Truck,
+  DbLogistics, DbFpo,
 } from './types';
 
 export const CROP_EMOJI: Record<Crop, string> = {
@@ -443,6 +444,8 @@ export type {
   Crop,
   DbFarmer     as Farmer,
   DbBuyer      as Buyer,
+  DbLogistics  as Logistics,
+  DbFpo        as Fpo,
   DbPrice      as Price,
   DbListing    as Listing,
   DbOffer      as Offer,
@@ -487,4 +490,41 @@ export async function createOrder(input: {
   }
   const { order } = await res.json();
   return mapOrder(order);
+}
+
+// ---------------------------------------------------------------------------
+// LOGISTICS
+// ---------------------------------------------------------------------------
+export async function getLogistics(id: number | string): Promise<DbLogistics | null> {
+  const row = await queryOne<any>(
+    `SELECT * FROM logistics_profiles WHERE id = $1`, [id],
+  );
+  if (!row) return null;
+  return {
+    ...row,
+    name: row.company_name,
+    vehicle_count: Number(row.vehicle_count),
+    service_radius: Number(row.service_radius),
+    rating: Number(row.rating),
+    avatar: '🚚',
+    logoColor: '#0F766E',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// FPO
+// ---------------------------------------------------------------------------
+export async function getFpo(id: number | string): Promise<DbFpo | null> {
+  const row = await queryOne<any>(
+    `SELECT * FROM fpo_profiles WHERE id = $1`, [id],
+  );
+  if (!row) return null;
+  return {
+    ...row,
+    name: row.fpo_name,
+    member_count: Number(row.member_count),
+    rating: Number(row.rating),
+    avatar: '🏘️',
+    logoColor: '#7C3AED',
+  };
 }

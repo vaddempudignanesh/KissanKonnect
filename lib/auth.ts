@@ -1,6 +1,4 @@
 // lib/auth.ts
-// Password hashing + JWT session cookie utilities.
-// Server-only. Never import from a "use client" file.
 import "server-only";
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
@@ -12,9 +10,11 @@ const SECRET = new TextEncoder().encode(
 const COOKIE_NAME = "kk_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
+export type SessionRole = "farmer" | "buyer" | "logistics" | "fpo" | "admin";
+
 export interface SessionPayload {
   userId: number;
-  role: "farmer" | "buyer" | "admin";
+  role: SessionRole;
   name: string;
 }
 
@@ -25,10 +25,7 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
 
-export async function verifyPassword(
-  password: string,
-  hash: string,
-): Promise<boolean> {
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
 
@@ -43,21 +40,20 @@ export async function signSession(payload: SessionPayload): Promise<string> {
     .sign(SECRET);
 }
 
-export async function verifySession(
-  token: string,
-): Promise<SessionPayload | null> {
+const VALID_ROLES: SessionRole[] = ["farmer", "buyer", "logistics", "fpo", "admin"];
+
+export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, SECRET);
     if (
       typeof payload.userId === "number" &&
-      (payload.role === "farmer" ||
-        payload.role === "buyer" ||
-        payload.role === "admin") &&
+      typeof payload.role === "string" &&
+      VALID_ROLES.includes(payload.role as SessionRole) &&
       typeof payload.name === "string"
     ) {
       return {
         userId: payload.userId,
-        role: payload.role,
+        role: payload.role as SessionRole,
         name: payload.name,
       };
     }

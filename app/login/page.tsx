@@ -10,6 +10,17 @@ import { useToast } from "@/components/Toast";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
+function destinationForRole(role: string): string {
+  switch (role) {
+    case "farmer":    return "/farmer";
+    case "buyer":     return "/buyer";
+    case "logistics": return "/logistics";
+    case "fpo":       return "/fpo";
+    case "admin":     return "/admin";
+    default:          return "/";
+  }
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,14 +36,8 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
 
-    if (!/^\d{10}$/.test(phone)) {
-      setError("Phone must be 10 digits");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
+    if (!/^\d{10}$/.test(phone)) { setError("Phone must be 10 digits"); return; }
+    if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
 
     setSubmitting(true);
     try {
@@ -52,9 +57,7 @@ function LoginForm() {
 
       toast(`Welcome back, ${data.user.name}!`);
       const next = searchParams.get("next");
-      if (next) router.push(next);
-      else if (data.user.role === "farmer") router.push("/farmer");
-      else router.push("/buyer");
+      router.push(next ?? destinationForRole(data.user.role));
     } catch (e: any) {
       setError(e.message ?? "Something went wrong");
       setSubmitting(false);
@@ -69,10 +72,7 @@ function LoginForm() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-sm text-[var(--kk-text-dim)] hover:text-[var(--kk-lime)] mb-6 transition-colors"
-        >
+        <Link href="/" className="inline-flex items-center gap-1 text-sm text-[var(--kk-text-dim)] hover:text-[var(--kk-lime)] mb-6 transition-colors">
           <ChevronLeft className="w-4 h-4" /> Back to home
         </Link>
 
@@ -95,16 +95,13 @@ function LoginForm() {
                 <Phone className="w-3 h-3" /> Phone number
               </div>
               <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
+                type="tel" inputMode="numeric" maxLength={10}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                 placeholder="9876543210"
                 className="w-full px-4 py-3 rounded-xl bg-[var(--kk-surface-2)] border border-[var(--kk-border)]
                            text-[var(--kk-text)] placeholder:text-[var(--kk-text-dim)]/60
-                           focus:outline-none focus:border-[var(--kk-lime)] focus:ring-1 focus:ring-[var(--kk-lime)]/40
-                           transition-all"
+                           focus:outline-none focus:border-[var(--kk-lime)] focus:ring-1 focus:ring-[var(--kk-lime)]/40 transition-all"
               />
             </label>
 
@@ -119,8 +116,7 @@ function LoginForm() {
                 placeholder="••••••"
                 className="w-full px-4 py-3 rounded-xl bg-[var(--kk-surface-2)] border border-[var(--kk-border)]
                            text-[var(--kk-text)] placeholder:text-[var(--kk-text-dim)]/60
-                           focus:outline-none focus:border-[var(--kk-lime)] focus:ring-1 focus:ring-[var(--kk-lime)]/40
-                           transition-all"
+                           focus:outline-none focus:border-[var(--kk-lime)] focus:ring-1 focus:ring-[var(--kk-lime)]/40 transition-all"
               />
             </label>
 
@@ -130,12 +126,7 @@ function LoginForm() {
               </div>
             )}
 
-            <AnimatedButton
-              size="lg"
-              onClick={() => {}}
-              disabled={submitting}
-              className="w-full"
-            >
+            <AnimatedButton size="lg" onClick={() => {}} disabled={submitting} className="w-full">
               <LogIn className="w-4 h-4" />
               {submitting ? "Logging in…" : "Log in"}
             </AnimatedButton>
@@ -143,10 +134,7 @@ function LoginForm() {
 
           <div className="mt-6 text-center text-sm text-[var(--kk-text-dim)]">
             Don't have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-[var(--kk-lime)] hover:underline font-medium"
-            >
+            <Link href="/signup" className="text-[var(--kk-lime)] hover:underline font-medium">
               Sign up
             </Link>
           </div>

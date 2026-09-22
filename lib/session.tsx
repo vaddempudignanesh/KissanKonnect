@@ -3,15 +3,16 @@
 import {
   createContext, useContext, useEffect, useState, ReactNode, useCallback,
 } from "react";
-import type { DbFarmer, DbBuyer } from "./types";
+import type { DbFarmer, DbBuyer, DbLogistics, DbFpo, UserRole } from "./types";
 
-export type Role = "farmer" | "buyer" | "admin" | null;
+export type Role = UserRole | null;
 
 interface User {
   id: number;
   phone: string;
   name: string;
-  role: "farmer" | "buyer" | "admin";
+  email?: string;
+  role: UserRole;
 }
 
 interface Session {
@@ -19,6 +20,8 @@ interface Session {
   user?: User;
   farmer?: DbFarmer;
   buyer?: DbBuyer;
+  logistics?: DbLogistics;
+  fpo?: DbFpo;
   ready: boolean;
   refreshSession: () => Promise<void>;
   logout: () => Promise<void>;
@@ -30,6 +33,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | undefined>();
   const [farmer, setFarmer] = useState<DbFarmer | undefined>();
   const [buyer, setBuyer] = useState<DbBuyer | undefined>();
+  const [logistics, setLogistics] = useState<DbLogistics | undefined>();
+  const [fpo, setFpo] = useState<DbFpo | undefined>();
   const [ready, setReady] = useState(false);
 
   const refreshSession = useCallback(async () => {
@@ -39,6 +44,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUser(json.user ?? undefined);
       setFarmer(json.farmer ?? undefined);
       setBuyer(json.buyer ?? undefined);
+      setLogistics(json.logistics ?? undefined);
+      setFpo(json.fpo ?? undefined);
     } catch (e) {
       console.warn("[session] refresh failed", e);
     } finally {
@@ -57,13 +64,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(undefined);
     setFarmer(undefined);
     setBuyer(undefined);
+    setLogistics(undefined);
+    setFpo(undefined);
   }, []);
 
   const role: Role = user?.role ?? null;
 
   return (
     <Ctx.Provider
-      value={{ role, user, farmer, buyer, ready, refreshSession, logout }}
+      value={{ role, user, farmer, buyer, logistics, fpo, ready, refreshSession, logout }}
     >
       {children}
     </Ctx.Provider>

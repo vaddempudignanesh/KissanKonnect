@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, queryOne, withTransaction } from "@/lib/db-client";
-import { hashPassword, signSession, setSessionCookie } from "@/db/migrations/auth";
+import { queryOne, withTransaction } from "@/lib/db-client";
+import { hashPassword, signSession, setSessionCookie } from "@/lib/auth";
+import type { SessionRole } from "@/lib/auth";
 
-type Role = "farmer" | "buyer";
+// Allowed roles for regular signup (admin is via /api/auth/admin only)
+const ALLOWED_ROLES: SessionRole[] = ["farmer", "buyer", "logistics", "fpo"];
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +15,10 @@ export async function POST(req: NextRequest) {
       village, district, state,
       // buyer fields
       companyName, city, buyerType,
+      // logistics fields
+      contactName, vehicleCount, serviceRadius,
+      // fpo fields
+      fpoName, memberCount,
     } = body;
 
     // ---- validate ----
@@ -23,10 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
     if (!/^\d{10}$/.test(String(phone))) {
-      return NextResponse.json(
-        { error: "phone must be 10 digits" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "phone must be 10 digits" }, { status: 400 });
     }
     if (String(password).length < 6) {
       return NextResponse.json(
@@ -34,14 +37,14 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    if (role !== "farmer" && role !== "buyer") {
+    if (!ALLOWED_ROLES.includes(role)) {
       return NextResponse.json(
-        { error: "role must be farmer or buyer" },
+        { error: `role must be one of: ${ALLOWED_ROLES.join(", ")}` },
         { status: 400 },
       );
     }
 
-    // ---- check duplicate phone ----
+    // ---- duplicate phone check ----
     const existing = await queryOne<{ id: number }>(
       `SELECT id FROM users WHERE phone = $1`,
       [phone],
@@ -65,32 +68,61 @@ export async function POST(req: NextRequest) {
       );
 
       if (role === "farmer") {
+        if (!village || !district || !state) {
+          throw new Error("village, district and state are required for farmers");
+        }
         await client.query(
           `INSERT INTO farmers
-             (user_id, village, district, state, latitude, longitude,
-              land_size_acres, verified, rating)
+             (user_id, village, district, state, verified, rating)
+           VALUES ($1, $2, $3, $4, FALSE, 0)`,
+          [user.id, village, district, state],
+        );
+      } else if (role === "buyer") {
+        if (!companyName || !city || !state) {
+          throw new Error("companyName, city and state are required for buyers");
+        }
+        await client.query(
+          `INSERT INTO buyers
+             (user_id, company_name, buyer_type, city, state, verified, rating)
+           VALUES ($1, $2, $3, $4, $5, FALSE, 0)`,
+          [user.id, companyName, buyerType ?? "local", city, state],
+        );
+      } else if (role === "logistics") {
+        if (!companyName || !city || !state) {
+          throw new Error("companyName, city and state are required for logistics");
+        }
+        await client.query(
+          `INSERT INTO logistics_profiles
+             (user_id, company_name, contact_name, city, state,
+              vehicle_count, service_radius, verified, rating)
            VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 0)`,
           [
             user.id,
-            village ?? "",
-            district ?? "",
-            state ?? "",
-            null, null, null,
+            companyName,
+            contactName ?? name,
+            city,
+            state,
+            Number(vehicleCount) || 1,
+            Number(serviceRadius) || 100,
           ],
         );
-      } else {
+      } else if (role === "fpo") {
+        if (!fpoName || !village || !district || !state) {
+          throw new Error("fpoName, village, district and state are required for FPOs");
+        }
         await client.query(
-          `INSERT INTO buyers
-             (user_id, company_name, buyer_type, city, state,
-              latitude, longitude, rating, verified)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 0, FALSE)`,
+          `INSERT INTO fpo_profiles
+             (user_id, fpo_name, contact_name, village, district, state,
+              member_count, verified, rating)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 0)`,
           [
             user.id,
-            companyName ?? name,
-            buyerType ?? "local",
-            city ?? "",
-            state ?? "",
-            null, null,
+            fpoName,
+            contactName ?? name,
+            village,
+            district,
+            state,
+            Number(memberCount) || 0,
           ],
         );
       }
@@ -106,10 +138,7 @@ export async function POST(req: NextRequest) {
     });
     await setSessionCookie(token);
 
-    return NextResponse.json({
-      ok: true,
-      user: result,
-    });
+    return NextResponse.json({ ok: true, user: result });
   } catch (e: any) {
     console.error("[/api/auth/signup]", e);
     return NextResponse.json(

@@ -6,14 +6,14 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Phone, Lock, User as UserIcon, MapPin, Building2, Leaf,
-  ChevronLeft, UserPlus, Sprout, ShoppingBasket,
+  ChevronLeft, UserPlus, Sprout, ShoppingBasket, Truck, Users,
 } from "lucide-react";
 import { AnimatedButton } from "@/components/AnimatedButton";
 import { useToast } from "@/components/Toast";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-type Role = "farmer" | "buyer";
+type Role = "farmer" | "buyer" | "logistics" | "fpo";
 
 function SignupForm() {
   const router = useRouter();
@@ -24,7 +24,7 @@ function SignupForm() {
   const initialRole = (searchParams.get("role") as Role) || "farmer";
   const [role, setRole] = useState<Role>(initialRole);
 
-  // Common fields
+  // Common
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -39,6 +39,14 @@ function SignupForm() {
   const [city, setCity] = useState("");
   const [buyerType, setBuyerType] = useState<"mnc" | "local" | "exporter" | "hotel">("local");
 
+  // Logistics
+  const [vehicleCount, setVehicleCount] = useState("");
+  const [serviceRadius, setServiceRadius] = useState("");
+
+  // FPO
+  const [fpoName, setFpoName] = useState("");
+  const [memberCount, setMemberCount] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,13 +60,15 @@ function SignupForm() {
 
     if (role === "farmer") {
       if (!village.trim() || !district.trim() || !state.trim()) {
-        setError("Village, district and state are required");
-        return;
+        setError("Village, district and state are required"); return;
       }
-    } else {
+    } else if (role === "buyer" || role === "logistics") {
       if (!companyName.trim() || !city.trim() || !state.trim()) {
-        setError("Company name, city and state are required");
-        return;
+        setError("Company name, city and state are required"); return;
+      }
+    } else if (role === "fpo") {
+      if (!fpoName.trim() || !village.trim() || !district.trim() || !state.trim()) {
+        setError("FPO name, village, district and state are required"); return;
       }
     }
 
@@ -66,14 +76,17 @@ function SignupForm() {
     try {
       const body: any = { name, phone, password, role };
       if (role === "farmer") {
-        body.village = village;
-        body.district = district;
-        body.state = state;
-      } else {
-        body.companyName = companyName;
-        body.city = city;
-        body.state = state;
-        body.buyerType = buyerType;
+        body.village = village; body.district = district; body.state = state;
+      } else if (role === "buyer") {
+        body.companyName = companyName; body.city = city; body.state = state; body.buyerType = buyerType;
+      } else if (role === "logistics") {
+        body.companyName = companyName; body.city = city; body.state = state;
+        body.vehicleCount = Number(vehicleCount) || 1;
+        body.serviceRadius = Number(serviceRadius) || 100;
+      } else if (role === "fpo") {
+        body.fpoName = fpoName; body.village = village;
+        body.district = district; body.state = state;
+        body.memberCount = Number(memberCount) || 0;
       }
 
       const res = await fetch("/api/auth/signup", {
@@ -90,7 +103,13 @@ function SignupForm() {
 
       await refreshSession();
       toast(`Welcome, ${data.user.name}!`);
-      router.push(role === "farmer" ? "/farmer" : "/buyer");
+
+      const dest =
+        data.user.role === "farmer" ? "/farmer"
+        : data.user.role === "buyer" ? "/buyer"
+        : data.user.role === "logistics" ? "/logistics"
+        : "/fpo";
+      router.push(dest);
     } catch (e: any) {
       setError(e.message ?? "Something went wrong");
       setSubmitting(false);
@@ -101,6 +120,13 @@ function SignupForm() {
     "w-full px-4 py-3 rounded-xl bg-[var(--kk-surface-2)] border border-[var(--kk-border)] " +
     "text-[var(--kk-text)] placeholder:text-[var(--kk-text-dim)]/60 " +
     "focus:outline-none focus:border-[var(--kk-lime)] focus:ring-1 focus:ring-[var(--kk-lime)]/40 transition-all";
+
+  const ROLES = [
+    { id: "farmer"    as const, label: "Farmer",    icon: Sprout },
+    { id: "buyer"     as const, label: "Buyer",     icon: ShoppingBasket },
+    { id: "logistics" as const, label: "Logistics", icon: Truck },
+    { id: "fpo"       as const, label: "FPO",       icon: Users },
+  ];
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-16">
@@ -130,12 +156,9 @@ function SignupForm() {
             </div>
           </div>
 
-          {/* Role toggle */}
+          {/* Role toggle — 2x2 grid */}
           <div className="grid grid-cols-2 gap-3 mb-6">
-            {([
-              { id: "farmer", label: "I'm a Farmer", icon: Sprout },
-              { id: "buyer",  label: "I'm a Buyer",  icon: ShoppingBasket },
-            ] as const).map(({ id, label, icon: Icon }) => {
+            {ROLES.map(({ id, label, icon: Icon }) => {
               const active = role === id;
               return (
                 <button
@@ -163,131 +186,139 @@ function SignupForm() {
               <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
                 <UserIcon className="w-3 h-3" /> Full name
               </div>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Rajesh Patil"
-                className={inputClass}
-              />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Rajesh Patil" className={inputClass} />
             </label>
 
             <label className="block">
               <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
                 <Phone className="w-3 h-3" /> Phone number
               </div>
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                value={phone}
+              <input type="tel" inputMode="numeric" maxLength={10} value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                placeholder="9876543210"
-                className={inputClass}
-              />
+                placeholder="9876543210" className={inputClass} />
             </label>
 
             <label className="block">
               <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Password (min 6 chars)
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••"
-                className={inputClass}
-              />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••" className={inputClass} />
             </label>
 
-            {role === "farmer" ? (
+            {/* ================= FARMER ================= */}
+            {role === "farmer" && (
               <>
                 <label className="block">
                   <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Village / Town
                   </div>
-                  <input
-                    type="text"
-                    value={village}
-                    onChange={(e) => setVillage(e.target.value)}
-                    placeholder="Nashik"
-                    className={inputClass}
-                  />
+                  <input type="text" value={village} onChange={(e) => setVillage(e.target.value)} placeholder="Nashik" className={inputClass} />
                 </label>
-
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block">
                     <div className="text-xs text-[var(--kk-text-dim)] mb-2">District</div>
-                    <input
-                      type="text"
-                      value={district}
-                      onChange={(e) => setDistrict(e.target.value)}
-                      placeholder="Nashik"
-                      className={inputClass}
-                    />
+                    <input type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Nashik" className={inputClass} />
                   </label>
                   <label className="block">
                     <div className="text-xs text-[var(--kk-text-dim)] mb-2">State</div>
-                    <input
-                      type="text"
-                      value={state}
-                      onChange={(e) => setState(e.target.value)}
-                      placeholder="Maharashtra"
-                      className={inputClass}
-                    />
+                    <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="Maharashtra" className={inputClass} />
                   </label>
                 </div>
               </>
-            ) : (
+            )}
+
+            {/* ================= BUYER ================= */}
+            {role === "buyer" && (
               <>
                 <label className="block">
                   <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
                     <Building2 className="w-3 h-3" /> Company name
                   </div>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Reliance Fresh"
-                    className={inputClass}
-                  />
+                  <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Reliance Fresh" className={inputClass} />
                 </label>
-
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block">
                     <div className="text-xs text-[var(--kk-text-dim)] mb-2">City</div>
-                    <input
-                      type="text"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="Delhi"
-                      className={inputClass}
-                    />
+                    <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Delhi" className={inputClass} />
                   </label>
                   <label className="block">
                     <div className="text-xs text-[var(--kk-text-dim)] mb-2">State</div>
-                    <input
-                      type="text"
-                      value={state}
-                      onChange={(e) => setState(e.target.value)}
-                      placeholder="Delhi"
-                      className={inputClass}
-                    />
+                    <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="Delhi" className={inputClass} />
                   </label>
                 </div>
-
                 <label className="block">
                   <div className="text-xs text-[var(--kk-text-dim)] mb-2">Buyer type</div>
-                  <select
-                    value={buyerType}
-                    onChange={(e) => setBuyerType(e.target.value as any)}
-                    className={inputClass}
-                  >
+                  <select value={buyerType} onChange={(e) => setBuyerType(e.target.value as any)} className={inputClass}>
                     <option value="mnc">MNC / National chain</option>
                     <option value="local">Local trader</option>
                     <option value="exporter">Exporter</option>
                     <option value="hotel">Hotel / Restaurant</option>
                   </select>
+                </label>
+              </>
+            )}
+
+            {/* ================= LOGISTICS ================= */}
+            {role === "logistics" && (
+              <>
+                <label className="block">
+                  <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
+                    <Building2 className="w-3 h-3" /> Company name
+                  </div>
+                  <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="FastTrack Logistics" className={inputClass} />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <div className="text-xs text-[var(--kk-text-dim)] mb-2">City</div>
+                    <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Pune" className={inputClass} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs text-[var(--kk-text-dim)] mb-2">State</div>
+                    <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="Maharashtra" className={inputClass} />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <div className="text-xs text-[var(--kk-text-dim)] mb-2">Vehicles</div>
+                    <input type="number" value={vehicleCount} onChange={(e) => setVehicleCount(e.target.value)} placeholder="5" className={inputClass} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs text-[var(--kk-text-dim)] mb-2">Service radius (km)</div>
+                    <input type="number" value={serviceRadius} onChange={(e) => setServiceRadius(e.target.value)} placeholder="200" className={inputClass} />
+                  </label>
+                </div>
+              </>
+            )}
+
+            {/* ================= FPO ================= */}
+            {role === "fpo" && (
+              <>
+                <label className="block">
+                  <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
+                    <Users className="w-3 h-3" /> FPO name
+                  </div>
+                  <input type="text" value={fpoName} onChange={(e) => setFpoName(e.target.value)} placeholder="Nashik Farmers Producer Co." className={inputClass} />
+                </label>
+                <label className="block">
+                  <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> Village / Town
+                  </div>
+                  <input type="text" value={village} onChange={(e) => setVillage(e.target.value)} placeholder="Nashik" className={inputClass} />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <div className="text-xs text-[var(--kk-text-dim)] mb-2">District</div>
+                    <input type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Nashik" className={inputClass} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs text-[var(--kk-text-dim)] mb-2">State</div>
+                    <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="Maharashtra" className={inputClass} />
+                  </label>
+                </div>
+                <label className="block">
+                  <div className="text-xs text-[var(--kk-text-dim)] mb-2">Number of member farmers</div>
+                  <input type="number" value={memberCount} onChange={(e) => setMemberCount(e.target.value)} placeholder="50" className={inputClass} />
                 </label>
               </>
             )}
@@ -298,12 +329,7 @@ function SignupForm() {
               </div>
             )}
 
-            <AnimatedButton
-              size="lg"
-              onClick={() => {}}
-              disabled={submitting}
-              className="w-full"
-            >
+            <AnimatedButton size="lg" onClick={() => {}} disabled={submitting} className="w-full">
               <UserPlus className="w-4 h-4" />
               {submitting ? "Creating account…" : "Create account"}
             </AnimatedButton>
@@ -311,10 +337,7 @@ function SignupForm() {
 
           <div className="mt-6 text-center text-sm text-[var(--kk-text-dim)]">
             Already have an account?{" "}
-            <Link
-              href="/login"
-              className="text-[var(--kk-lime)] hover:underline font-medium"
-            >
+            <Link href="/login" className="text-[var(--kk-lime)] hover:underline font-medium">
               Log in
             </Link>
           </div>

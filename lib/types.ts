@@ -1,14 +1,15 @@
 // lib/types.ts
-// These mirror Postgres tables exactly.
-
 export type Crop = 'Tomato' | 'Onion' | 'Potato' | 'Wheat' | 'Rice'
                  | 'Sugarcane' | 'Cotton' | 'Soybean';
+
+export type UserRole = 'farmer' | 'buyer' | 'logistics' | 'fpo' | 'admin';
 
 export interface DbUser {
   id: number;
   phone: string;
   name: string;
-  role: 'farmer' | 'buyer' | 'admin';
+  email?: string;
+  role: UserRole;
   created_at: string;
 }
 
@@ -34,17 +35,49 @@ export interface DbBuyer {
   id: number;
   user_id: number;
   company_name: string;
-  name: string;          // alias for company_name (UI convenience)
+  name: string;
   buyer_type: 'mnc' | 'local' | 'exporter' | 'hotel' | 'mandi';
-  type: string;          // UI alias for buyer_type (MNC / Local / Export)
+  type: string;
   city: string;
   state: string;
-  distanceKm: number;    // computed relative to current farmer
+  distanceKm: number;
   latitude: number;
   longitude: number;
   rating: number;
   total_orders: number;
   verified: boolean;
+  avatar: string;
+  logoColor: string;
+}
+
+export interface DbLogistics {
+  id: number;
+  user_id: number;
+  company_name: string;
+  name: string;
+  contact_name: string | null;
+  city: string;
+  state: string;
+  vehicle_count: number;
+  service_radius: number;
+  verified: boolean;
+  rating: number;
+  avatar: string;
+  logoColor: string;
+}
+
+export interface DbFpo {
+  id: number;
+  user_id: number;
+  fpo_name: string;
+  name: string;
+  contact_name: string | null;
+  village: string;
+  district: string;
+  state: string;
+  member_count: number;
+  verified: boolean;
+  rating: number;
   avatar: string;
   logoColor: string;
 }
@@ -82,9 +115,6 @@ export interface DbListing {
   district?: string;
   state?: string;
   photo?: string;
-
-  // ---------- UI aliases (kept so pages don't need mass edits) ----------
-  // ---------- UI aliases (kept so pages don't need mass edits) ----------
   farmerId: number;
   quantityKg: number;
   quality: 'A' | 'B' | 'C';
@@ -108,8 +138,6 @@ export interface DbOffer {
   distance_km?: number;
   logoColor?: string;
   avatar?: string;
-
-  // UI aliases
   buyerId: number;
   pricePerKg: number;
   quantityKg: number;
@@ -125,7 +153,7 @@ export interface Truck {
 }
 
 export interface DbOrder {
-  id: string;                // order_number used as primary key in UI
+  id: string;
   order_number: string;
   listing_id: number;
   farmer_id: number;
@@ -151,15 +179,12 @@ export interface DbOrder {
   farmer_name?: string;
   company_name?: string;
   truck: Truck;
-
-   // UI aliases
   farmerId: number;
   buyerId: number;
   cropEmoji?: string;
   quantityKg: number;
   netToFarmer: number;
   totalAmount: number;
-
 }
 
 export interface DbOrderEvent {

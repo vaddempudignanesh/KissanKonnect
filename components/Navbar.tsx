@@ -11,9 +11,17 @@ import { useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
+const ROLE_LABEL: Record<string, string> = {
+  farmer:    "Farmer",
+  buyer:     "Buyer",
+  logistics: "Logistics",
+  fpo:       "FPO",
+  admin:     "Admin",
+};
+
 export function Navbar() {
   const { t } = useI18n();
-  const { role, user, farmer, buyer, logout } = useSession();
+  const { role, user, farmer, buyer, logistics, fpo, logout } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -36,9 +44,18 @@ export function Navbar() {
           { href: "/buyer/orders", label: "My Orders" },
         ]
       : []),
+    ...(role === "logistics" ? [{ href: "/logistics", label: "Logistics" }] : []),
+    ...(role === "fpo" ? [{ href: "/fpo", label: "FPO" }] : []),
+    ...(role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 
-  const displayName = farmer?.name ?? buyer?.company_name ?? user?.name ?? "";
+  const displayName =
+    farmer?.name ??
+    buyer?.company_name ??
+    logistics?.company_name ??
+    fpo?.fpo_name ??
+    user?.name ??
+    "";
 
   const onLogout = async () => {
     if (loggingOut) return;
@@ -57,13 +74,10 @@ export function Navbar() {
       initial={{ y: -40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="sticky top-0 z-50 backdrop-blur-xl
-                 bg-[rgba(255,255,255,0.85)]
-                 border-b border-[var(--kk-border)]"
+      className="sticky top-0 z-50 backdrop-blur-xl bg-[rgba(255,255,255,0.85)] border-b border-[var(--kk-border)]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* ---------- Brand ---------- */}
           <Link href="/" className="flex items-center gap-2 group">
             <motion.div
               whileHover={{ rotate: 12, scale: 1.1 }}
@@ -73,52 +87,45 @@ export function Navbar() {
               <Leaf className="w-5 h-5" />
             </motion.div>
             <div className="leading-tight">
-              <div className="font-bold text-[var(--kk-text)]">
-                {t("brand.name")}
-              </div>
+              <div className="font-bold text-[var(--kk-text)]">{t("brand.name")}</div>
               <div className="text-[10px] text-[var(--kk-text-dim)] hidden sm:block">
                 {t("brand.tagline")}
               </div>
             </div>
           </Link>
 
-          {/* ---------- Desktop links ---------- */}
           <nav className="hidden md:flex items-center gap-6">
             {links.map((l) => {
               const active = pathname === l.href;
               return (
-                <Link
-                  key={l.href}
-                  href={l.href}
+                <Link key={l.href} href={l.href}
                   className={cn(
                     "text-sm font-medium transition-colors",
-                    active
-                      ? "text-[var(--kk-text)] font-semibold"
-                      : "text-[var(--kk-text-dim)] hover:text-[var(--kk-text)]",
-                  )}
-                >
+                    active ? "text-[var(--kk-text)] font-semibold"
+                           : "text-[var(--kk-text-dim)] hover:text-[var(--kk-text)]",
+                  )}>
                   {l.label}
                 </Link>
               );
             })}
           </nav>
 
-          {/* ---------- Right actions ---------- */}
           <div className="hidden md:flex items-center gap-3">
             <LanguageToggle />
 
             {role ? (
               <>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl
-                                bg-[var(--kk-surface-2)] border border-[var(--kk-border)]">
+                <Link
+                  href={`/${role}/profile`}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl
+                             bg-[var(--kk-surface-2)] border border-[var(--kk-border)]
+                             hover:border-[var(--kk-lime)] transition-colors"
+                  title="Edit profile"
+                >
                   <UserCircle2 className="w-4 h-4 text-[#111111]" />
-                  <span className="text-sm text-[var(--kk-text)]">
-                    {displayName}
-                  </span>
-                  <span className="kk-badge ml-1">
-                    {role === "farmer" ? "Farmer" : "Buyer"}
-                  </span>
-                </div>
+                  <span className="text-sm text-[var(--kk-text)]">{displayName}</span>
+                  <span className="kk-badge ml-1">{ROLE_LABEL[role] ?? role}</span>
+                </Link>
                 <button
                   onClick={onLogout}
                   disabled={loggingOut}
@@ -164,7 +171,6 @@ export function Navbar() {
             )}
           </div>
 
-          {/* ---------- Mobile toggle ---------- */}
           <button
             className="md:hidden p-2 rounded-lg border border-[var(--kk-border)] text-[var(--kk-text)]"
             onClick={() => setMobileOpen((v) => !v)}
@@ -175,7 +181,6 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* ---------- Mobile drawer ---------- */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -183,17 +188,12 @@ export function Navbar() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="md:hidden border-t border-[var(--kk-border)]
-                       bg-[var(--kk-surface)] overflow-hidden"
+            className="md:hidden border-t border-[var(--kk-border)] bg-[var(--kk-surface)] overflow-hidden"
           >
             <div className="px-4 py-4 flex flex-col gap-3">
               {links.map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="text-sm text-[var(--kk-text)] py-2"
-                >
+                <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
+                  className="text-sm text-[var(--kk-text)] py-2">
                   {l.label}
                 </Link>
               ))}
@@ -205,8 +205,7 @@ export function Navbar() {
                     disabled={loggingOut}
                     className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-semibold
                                border border-[var(--kk-border)] text-[var(--kk-text)]
-                               bg-white hover:bg-[#111111] hover:text-white
-                               disabled:opacity-50 transition-colors"
+                               bg-white hover:bg-[#111111] hover:text-white disabled:opacity-50 transition-colors"
                   >
                     {loggingOut ? (
                       <>
