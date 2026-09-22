@@ -1,7 +1,5 @@
 // components/PageHeader.tsx
-// PURPOSE: Consistent header used by every inner page (dashboards, listings,
-//          forms, orders). Provides badge + title + subtitle + optional
-//          actions on the right. Animated in on mount.
+// PURPOSE: Consistent header used by every inner page.
 "use client";
 
 import { motion } from "framer-motion";
@@ -31,7 +29,7 @@ export function PageHeader({ badge, badgeIcon: BadgeIcon, title, subtitle, actio
             {badge}
           </span>
         )}
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--kk-text)]">
           {title}
         </h1>
         {subtitle && (

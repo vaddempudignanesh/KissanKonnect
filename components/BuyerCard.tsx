@@ -1,6 +1,4 @@
 // components/BuyerCard.tsx
-// PURPOSE: Shows one buyer's offer on a listing.
-//          "Accept Offer" creates an order (fake for now) and shows a toast.
 "use client";
 
 import { motion } from "framer-motion";
@@ -31,7 +29,7 @@ export function BuyerCard({
       transition={{ duration: 0.35 }}
       className={cn(
         "kk-card p-6 flex flex-col",
-        best && "border-[var(--kk-lime)] shadow-[0_0_40px_rgba(169,227,75,0.25)]"
+        best && "border-[#111111] shadow-[0_0_40px_rgba(0,0,0,0.15)]"
       )}
     >
       <div className="flex items-start gap-4">
@@ -43,12 +41,14 @@ export function BuyerCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold truncate">{buyer.name}</h3>
+            <h3 className="font-semibold truncate text-[var(--kk-text)]">
+              {buyer.name}
+            </h3>
             {best && <span className="kk-badge">Best Price</span>}
           </div>
           <div className="mt-1 text-xs text-[var(--kk-text-dim)] flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <Star className="w-3 h-3 fill-[var(--kk-amber)] text-[var(--kk-amber)]" />
+              <Star className="w-3 h-3 fill-[#111111] text-[#111111]" />
               {buyer.rating}
             </span>
             <span className="flex items-center gap-1">
@@ -68,13 +68,13 @@ export function BuyerCard({
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-[var(--kk-surface-2)] p-3">
           <div className="text-xs text-[var(--kk-text-dim)]">Their offer</div>
-          <div className="mt-1 font-semibold text-[var(--kk-lime)]">
+          <div className="mt-1 font-semibold text-[var(--kk-text)]">
             ₹{pricePerKg}/kg
           </div>
         </div>
         <div className="rounded-xl bg-[var(--kk-surface-2)] p-3">
           <div className="text-xs text-[var(--kk-text-dim)]">Total deal</div>
-          <div className="mt-1 font-semibold">
+          <div className="mt-1 font-semibold text-[var(--kk-text)]">
             {formatINR(pricePerKg * quantityKg)}
           </div>
         </div>
@@ -82,7 +82,7 @@ export function BuyerCard({
 
       <div className="mt-5">
         {accepted ? (
-          <div className="flex items-center gap-2 text-[var(--kk-lime)] text-sm font-medium">
+          <div className="flex items-center gap-2 text-[#111111] text-sm font-medium">
             <CheckCircle2 className="w-5 h-5" /> Accepted
           </div>
         ) : (

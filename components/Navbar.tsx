@@ -47,9 +47,7 @@ export function Navbar() {
     try {
       await logout();
     } finally {
-      // Send them home
       router.push("/");
-      // Small delay so the router transition feels smooth
       setTimeout(() => setLoggingOut(false), 400);
     }
   };
@@ -60,7 +58,7 @@ export function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="sticky top-0 z-50 backdrop-blur-xl
-                 bg-[rgba(11,15,25,0.75)]
+                 bg-[rgba(255,255,255,0.85)]
                  border-b border-[var(--kk-border)]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -70,7 +68,7 @@ export function Navbar() {
             <motion.div
               whileHover={{ rotate: 12, scale: 1.1 }}
               transition={{ type: "spring", stiffness: 300 }}
-              className="p-2 rounded-xl bg-[var(--kk-lime)]/15 text-[var(--kk-lime)]"
+              className="p-2 rounded-xl bg-[#111111] text-white"
             >
               <Leaf className="w-5 h-5" />
             </motion.div>
@@ -95,7 +93,7 @@ export function Navbar() {
                   className={cn(
                     "text-sm font-medium transition-colors",
                     active
-                      ? "text-[var(--kk-lime)]"
+                      ? "text-[var(--kk-text)] font-semibold"
                       : "text-[var(--kk-text-dim)] hover:text-[var(--kk-text)]",
                   )}
                 >
@@ -113,7 +111,7 @@ export function Navbar() {
               <>
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl
                                 bg-[var(--kk-surface-2)] border border-[var(--kk-border)]">
-                  <UserCircle2 className="w-4 h-4 text-[var(--kk-lime)]" />
+                  <UserCircle2 className="w-4 h-4 text-[#111111]" />
                   <span className="text-sm text-[var(--kk-text)]">
                     {displayName}
                   </span>
@@ -126,8 +124,8 @@ export function Navbar() {
                   disabled={loggingOut}
                   className={cn(
                     "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-semibold",
-                    "border border-[var(--kk-border)] text-[var(--kk-text-dim)]",
-                    "hover:border-[var(--kk-terracotta)] hover:text-[var(--kk-terracotta)]",
+                    "border border-[var(--kk-border)] text-[var(--kk-text)]",
+                    "bg-white hover:bg-[#111111] hover:text-white",
                     "transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                   )}
                 >
@@ -168,7 +166,7 @@ export function Navbar() {
 
           {/* ---------- Mobile toggle ---------- */}
           <button
-            className="md:hidden p-2 rounded-lg border border-[var(--kk-border)]"
+            className="md:hidden p-2 rounded-lg border border-[var(--kk-border)] text-[var(--kk-text)]"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Menu"
           >
@@ -206,8 +204,8 @@ export function Navbar() {
                     onClick={onLogout}
                     disabled={loggingOut}
                     className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-semibold
-                               border border-[var(--kk-border)] text-[var(--kk-text-dim)]
-                               hover:border-[var(--kk-terracotta)] hover:text-[var(--kk-terracotta)]
+                               border border-[var(--kk-border)] text-[var(--kk-text)]
+                               bg-white hover:bg-[#111111] hover:text-white
                                disabled:opacity-50 transition-colors"
                   >
                     {loggingOut ? (

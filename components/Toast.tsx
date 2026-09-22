@@ -34,8 +34,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className="kk-card px-5 py-3 flex items-center gap-3 min-w-[260px]"
             >
-              <CheckCircle2 className="w-5 h-5 text-[var(--kk-lime)] shrink-0" />
-              <span className="text-sm">{t.text}</span>
+              <CheckCircle2 className="w-5 h-5 text-[#111111] shrink-0" />
+              <span className="text-sm text-[var(--kk-text)]">{t.text}</span>
             </motion.div>
           ))}
         </AnimatePresence>

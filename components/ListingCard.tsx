@@ -1,3 +1,4 @@
+// components/ListingCard.tsx
 "use client";
 
 import { motion } from "framer-motion";
@@ -36,7 +37,9 @@ export function ListingCard({
         </span>
       </div>
 
-      <h3 className="mt-4 text-xl font-semibold">{listing.crop}</h3>
+      <h3 className="mt-4 text-xl font-semibold text-[var(--kk-text)]">
+        {listing.crop}
+      </h3>
 
       <div className="mt-1 text-sm text-[var(--kk-text-dim)] flex items-center gap-1">
         <MapPin className="w-3.5 h-3.5" />
@@ -48,11 +51,13 @@ export function ListingCard({
           <div className="text-[var(--kk-text-dim)] text-xs flex items-center gap-1">
             <Scale className="w-3 h-3" /> Quantity
           </div>
-          <div className="mt-1 font-semibold">{listing.quantityKg} kg</div>
+          <div className="mt-1 font-semibold text-[var(--kk-text)]">
+            {listing.quantityKg} kg
+          </div>
         </div>
         <div className="rounded-xl bg-[var(--kk-surface-2)] p-3">
           <div className="text-[var(--kk-text-dim)] text-xs">Expected</div>
-          <div className="mt-1 font-semibold text-[var(--kk-lime)]">
+          <div className="mt-1 font-semibold text-[var(--kk-text)]">
             ₹{listing.expectedPrice}/kg
           </div>
         </div>
@@ -61,7 +66,7 @@ export function ListingCard({
       <div className="mt-4 pt-4 border-t border-[var(--kk-border)] flex items-center justify-between">
         <div>
           <div className="text-xs text-[var(--kk-text-dim)]">Total value</div>
-          <div className="font-semibold">
+          <div className="font-semibold text-[var(--kk-text)]">
             {formatINR(listing.quantityKg * listing.expectedPrice)}
           </div>
         </div>

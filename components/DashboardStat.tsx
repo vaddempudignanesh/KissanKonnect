@@ -1,7 +1,5 @@
 // components/DashboardStat.tsx
 // PURPOSE: A compact stat card used across dashboards.
-//          Shows an emoji/icon, an animated counter, a label, and an
-//          optional trend chip. Hover lifts and glows.
 "use client";
 
 import { motion } from "framer-motion";
@@ -23,7 +21,7 @@ interface Props {
 
 export function DashboardStat({
   icon: Icon, emoji, value, label, prefix = "", suffix = "",
-  trend, accent = "var(--kk-lime)", delay = 0,
+  trend, accent = "#111111", delay = 0,
 }: Props) {
   const [n, setN] = useState(0);
 
@@ -69,8 +67,8 @@ export function DashboardStat({
               className={cn(
                 "flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full",
                 trend.direction === "up"
-                  ? "text-[var(--kk-lime)] bg-[rgba(169,227,75,0.1)]"
-                  : "text-[var(--kk-terracotta)] bg-[rgba(199,91,57,0.1)]"
+                  ? "text-[#111111] bg-[rgba(0,0,0,0.06)]"
+                  : "text-[var(--kk-terracotta)] bg-[rgba(0,0,0,0.04)]"
               )}
             >
               {trend.direction === "up" ? (

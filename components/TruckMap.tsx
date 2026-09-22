@@ -1,6 +1,4 @@
 // components/TruckMap.tsx
-// PURPOSE: Animated SVG route map. Shows waypoints (cities), the current
-//   progress along the route, and a truck emoji that slides between stops.
 "use client";
 
 import { motion } from "framer-motion";
@@ -14,7 +12,6 @@ export function TruckMap({ truck }: Props) {
   const stops = truck.route;
   const current = Math.min(truck.currentStopIndex, stops.length - 1);
 
-  // Map lat/lng to SVG viewport
   const lats = stops.map((s: any) => s.lat);
   const lngs = stops.map((s: any) => s.lng);
   const minLat = Math.min(...lats) - 1;
@@ -34,8 +31,8 @@ export function TruckMap({ truck }: Props) {
   return (
     <div className="kk-card p-6">
       <div className="flex items-center justify-between mb-4">
-        <div className="text-sm font-semibold flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[var(--kk-lime)] animate-pulse" />
+        <div className="text-sm font-semibold flex items-center gap-2 text-[var(--kk-text)]">
+          <span className="w-2 h-2 rounded-full bg-[#111111] animate-pulse" />
           Live tracking
         </div>
         <div className="text-xs text-[var(--kk-text-dim)]">
@@ -45,22 +42,28 @@ export function TruckMap({ truck }: Props) {
 
       <div className="relative rounded-2xl bg-[var(--kk-surface-2)] p-2 overflow-hidden">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-          {/* Grid */}
           <defs>
             <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
-              <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(169,227,75,0.06)" strokeWidth="1" />
+              <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width={W} height={H} fill="url(#grid)" />
 
           {/* Route line (dim) */}
-          <path d={path} fill="none" stroke="rgba(169,227,75,0.2)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 6" />
+          <path
+            d={path}
+            fill="none"
+            stroke="rgba(0,0,0,0.15)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="6 6"
+          />
 
           {/* Route line (completed) */}
           <motion.path
             d={path}
             fill="none"
-            stroke="var(--kk-lime)"
+            stroke="#111111"
             strokeWidth="3"
             strokeLinecap="round"
             initial={{ pathLength: 0 }}
@@ -68,8 +71,7 @@ export function TruckMap({ truck }: Props) {
             transition={{ duration: 1, ease: "easeInOut" }}
           />
 
-          {/* Stops */}
-                    {stops.map((s: any, i: number) => {
+          {stops.map((s: any, i: number) => {
             const reached = i <= current;
             return (
               <g key={s.name}>
@@ -77,15 +79,15 @@ export function TruckMap({ truck }: Props) {
                   cx={toX(s.lng)}
                   cy={toY(s.lat)}
                   r={reached ? 8 : 6}
-                  fill={reached ? "var(--kk-lime)" : "var(--kk-surface)"}
-                  stroke={reached ? "var(--kk-lime)" : "var(--kk-text-dim)"}
+                  fill={reached ? "#111111" : "#FFFFFF"}
+                  stroke={reached ? "#111111" : "#888888"}
                   strokeWidth="2"
                 />
                 <text
                   x={toX(s.lng) + 12}
                   y={toY(s.lat) + 4}
                   fontSize="11"
-                  fill={reached ? "#E8F1EA" : "#92A79B"}
+                  fill={reached ? "#111111" : "#555555"}
                   fontWeight={reached ? "600" : "400"}
                 >
                   {s.name}
@@ -94,14 +96,13 @@ export function TruckMap({ truck }: Props) {
             );
           })}
 
-          {/* Truck emoji — animates smoothly to its current position */}
           <motion.g
             animate={{ x: truckX, y: truckY }}
             transition={{ type: "spring", stiffness: 40, damping: 15 }}
           >
             <motion.circle
               r={22}
-              fill="rgba(169,227,75,0.15)"
+              fill="rgba(0,0,0,0.08)"
               animate={{ r: [22, 28, 22], opacity: [0.4, 0.1, 0.4] }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -112,13 +113,12 @@ export function TruckMap({ truck }: Props) {
         </svg>
       </div>
 
-      {/* Legend */}
       <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-[var(--kk-text-dim)]">
         <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[var(--kk-lime)]" /> Reached
+          <span className="w-2 h-2 rounded-full bg-[#111111]" /> Reached
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full border border-[var(--kk-text-dim)]" /> Pending
+          <span className="w-2 h-2 rounded-full border border-[#888888]" /> Pending
         </span>
       </div>
     </div>

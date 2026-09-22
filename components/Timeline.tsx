@@ -1,5 +1,4 @@
 // components/Timeline.tsx
-// PURPOSE: Vertical order status timeline.
 "use client";
 
 import { motion } from "framer-motion";
@@ -24,7 +23,9 @@ export function Timeline({ status }: Props) {
 
   return (
     <div className="kk-card p-6">
-      <h3 className="font-semibold mb-5">Order progress</h3>
+      <h3 className="font-semibold mb-5 text-[var(--kk-text)]">
+        Order progress
+      </h3>
       <div className="relative">
         {STAGES.map((s, i) => {
           const done = i <= current;
@@ -38,22 +39,20 @@ export function Timeline({ status }: Props) {
               transition={{ delay: i * 0.08, duration: 0.4 }}
               className="flex items-start gap-4 relative pb-6 last:pb-0"
             >
-              {/* Vertical line */}
               {i < STAGES.length - 1 && (
                 <div
                   className={cn(
                     "absolute left-[15px] top-[30px] w-0.5 h-full",
-                    i < current ? "bg-[var(--kk-lime)]" : "bg-[var(--kk-border)]"
+                    i < current ? "bg-[#111111]" : "bg-[var(--kk-border)]"
                   )}
                 />
               )}
 
-              {/* Dot */}
               <div
                 className={cn(
                   "relative z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-all",
                   done
-                    ? "bg-[var(--kk-lime)] border-[var(--kk-lime)] text-[#0A0F0D]"
+                    ? "bg-[#111111] border-[#111111] text-white"
                     : "bg-[var(--kk-surface)] border-[var(--kk-border)] text-[var(--kk-text-dim)]"
                 )}
               >
@@ -64,7 +63,7 @@ export function Timeline({ status }: Props) {
                 )}
                 {active && (
                   <motion.span
-                    className="absolute inset-0 rounded-full border-2 border-[var(--kk-lime)]"
+                    className="absolute inset-0 rounded-full border-2 border-[#111111]"
                     animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
                   />
@@ -72,13 +71,13 @@ export function Timeline({ status }: Props) {
               </div>
 
               <div className="flex-1 pt-0.5">
-                <div className={cn("font-medium", done && "text-[var(--kk-lime)]")}>
+                <div className={cn("font-medium", done ? "text-[#111111]" : "text-[var(--kk-text)]")}>
                   {s.label}
                 </div>
                 <div className="text-sm text-[var(--kk-text-dim)]">{s.desc}</div>
               </div>
 
-              <Icon className={cn("w-5 h-5", done ? "text-[var(--kk-lime)]" : "text-[var(--kk-text-dim)]")} />
+              <Icon className={cn("w-5 h-5", done ? "text-[#111111]" : "text-[var(--kk-text-dim)]")} />
             </motion.div>
           );
         })}

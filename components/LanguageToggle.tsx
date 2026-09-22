@@ -18,7 +18,7 @@ export function LanguageToggle() {
       className="inline-flex items-center gap-2 px-3 py-2 rounded-xl
                  bg-[var(--kk-surface-2)] border border-[var(--kk-border)]
                  text-sm font-medium text-[var(--kk-text)]
-                 hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)]
+                 hover:bg-[#111111] hover:text-white
                  transition-colors"
       title="Change language"
     >

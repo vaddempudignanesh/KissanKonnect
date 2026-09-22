@@ -1,5 +1,5 @@
 // app/page.tsx
-// PURPOSE: Fully animated landing page (premium dark theme).
+// PURPOSE: Fully animated landing page (light theme).
 //
 // SCROLL FLOW:
 //   1. On load → only hero is visible.
@@ -26,8 +26,8 @@ export default function HomePage() {
     <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
       {/* Ambient glows */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-[var(--kk-lime)] opacity-[0.06] blur-[120px]" />
-        <div className="absolute top-40 right-0 w-96 h-96 rounded-full bg-[var(--kk-amber)] opacity-[0.04] blur-[120px]" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-black opacity-[0.03] blur-[120px]" />
+        <div className="absolute top-40 right-0 w-96 h-96 rounded-full bg-black opacity-[0.02] blur-[120px]" />
       </div>
 
       {/* ============================================================= */}
@@ -132,12 +132,12 @@ export default function HomePage() {
             whileHover={{ y: -8, scale: 1.02 }}
             className="kk-card p-6 group"
           >
-            <div className="p-3 rounded-xl bg-[var(--kk-lime)]/10 text-[var(--kk-lime)] w-fit transition-transform group-hover:scale-110 group-hover:rotate-6">
+            <div className="p-3 rounded-xl bg-[#333333] text-white w-fit transition-transform group-hover:scale-110 group-hover:rotate-6">
               <f.icon className="w-5 h-5" />
             </div>
             <h3 className="mt-4 font-semibold text-lg">{f.title}</h3>
             <p className="mt-2 text-sm text-[var(--kk-text-dim)]">{f.desc}</p>
-            <div className="mt-4 flex items-center gap-1 text-sm text-[var(--kk-lime)] opacity-60 group-hover:opacity-100 transition-opacity">
+            <div className="mt-4 flex items-center gap-1 text-sm text-[var(--kk-text)] opacity-60 group-hover:opacity-100 transition-opacity">
               Learn more <ArrowRight className="w-4 h-4" />
             </div>
           </motion.div>
@@ -161,12 +161,12 @@ export default function HomePage() {
       >
         <div className="absolute inset-0 pointer-events-none">
           <motion.div
-            className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-[var(--kk-lime)] opacity-10 blur-[100px]"
+            className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-black opacity-[0.04] blur-[100px]"
             animate={{ x: [0, 40, 0], y: [0, 20, 0] }}
             transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           />
           <motion.div
-            className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-[var(--kk-amber)] opacity-10 blur-[100px]"
+            className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-black opacity-[0.03] blur-[100px]"
             animate={{ x: [0, -40, 0], y: [0, -20, 0] }}
             transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
           />
@@ -218,8 +218,8 @@ function FlyingStat({
       style={{ transformStyle: "preserve-3d", perspective: 800 }}
     >
       <motion.div
-        className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-[var(--kk-lime)] opacity-10 blur-3xl"
-        animate={{ scale: [1, 1.25, 1], opacity: [0.08, 0.15, 0.08] }}
+        className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-black opacity-[0.03] blur-3xl"
+        animate={{ scale: [1, 1.25, 1], opacity: [0.03, 0.06, 0.03] }}
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
       />
       <div className="relative">
@@ -253,7 +253,7 @@ function Counter({
 
   return (
     <>
-      <div className="text-3xl font-bold text-[var(--kk-lime)]">
+      <div className="text-3xl font-bold text-[var(--kk-text)]">
         {prefix}{n.toLocaleString("en-IN")}{suffix}
       </div>
       <div className="mt-1 text-sm text-[var(--kk-text-dim)]">{label}</div>
@@ -328,7 +328,7 @@ function Testimonials() {
               <div className="text-sm text-[var(--kk-text-dim)]">{q.role}</div>
               <div className="mt-2 flex items-center justify-center gap-1">
                 {[...Array(5)].map((_, k) => (
-                  <Star key={k} className="w-4 h-4 fill-[var(--kk-amber)] text-[var(--kk-amber)]" />
+                  <Star key={k} className="w-4 h-4 fill-[#111111] text-[#111111]" />
                 ))}
               </div>
             </div>
@@ -341,7 +341,7 @@ function Testimonials() {
               key={k}
               onClick={() => setI(k)}
               className={`h-1.5 rounded-full transition-all ${
-                k === i ? "w-8 bg-[var(--kk-lime)]" : "w-1.5 bg-[var(--kk-border)]"
+                k === i ? "w-8 bg-[#111111]" : "w-1.5 bg-[#cccccc]"
               }`}
               aria-label={`Show quote ${k + 1}`}
             />
@@ -376,17 +376,17 @@ function RolePanels() {
         transition={{ duration: 0.8, type: "spring", stiffness: 50, damping: 14 }}
         className="kk-card p-8 relative overflow-hidden group"
       >
-        <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-[var(--kk-lime)] opacity-10 blur-[100px] group-hover:opacity-20 transition-opacity" />
+        <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-black opacity-[0.03] blur-[100px] group-hover:opacity-[0.06] transition-opacity" />
 
         <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--kk-lime)]/15 text-[var(--kk-lime)] text-xs font-bold mb-5 border border-[var(--kk-lime)]/30">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#111111] text-white text-xs font-bold mb-5">
             <Leaf className="w-3.5 h-3.5" /> FOR FARMERS
           </div>
 
           <h3 className="text-3xl font-bold tracking-tight">
             Sell your harvest.
             <br />
-            <span className="text-[var(--kk-lime)]">Earn what you deserve.</span>
+            <span className="text-[#555555]">Earn what you deserve.</span>
           </h3>
 
           <p className="mt-4 text-[var(--kk-text-dim)]">
@@ -402,7 +402,7 @@ function RolePanels() {
               "Escrow-protected payments",
             ].map((li) => (
               <li key={li} className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[var(--kk-lime)] mt-0.5 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#111111] mt-0.5 shrink-0" />
                 <span className="text-[var(--kk-text-dim)]">{li}</span>
               </li>
             ))}
@@ -428,17 +428,17 @@ function RolePanels() {
         transition={{ duration: 0.8, type: "spring", stiffness: 50, damping: 14 }}
         className="kk-card p-8 relative overflow-hidden group"
       >
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-[var(--kk-amber)] opacity-10 blur-[100px] group-hover:opacity-20 transition-opacity" />
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-black opacity-[0.03] blur-[100px] group-hover:opacity-[0.06] transition-opacity" />
 
         <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--kk-amber)]/15 text-[var(--kk-amber)] text-xs font-bold mb-5 border border-[var(--kk-amber)]/30">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#333333] text-white text-xs font-bold mb-5">
             <ShoppingBasket className="w-3.5 h-3.5" /> FOR BUYERS
           </div>
 
           <h3 className="text-3xl font-bold tracking-tight">
             Source fresh produce.
             <br />
-            <span className="text-[var(--kk-amber)]">Direct from farms.</span>
+            <span className="text-[#555555]">Direct from farms.</span>
           </h3>
 
           <p className="mt-4 text-[var(--kk-text-dim)]">
@@ -454,7 +454,7 @@ function RolePanels() {
               "Escrow + audit trail for every order",
             ].map((li) => (
               <li key={li} className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[var(--kk-amber)] mt-0.5 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#111111] mt-0.5 shrink-0" />
                 <span className="text-[var(--kk-text-dim)]">{li}</span>
               </li>
             ))}

@@ -1,7 +1,5 @@
 // components/Stat.tsx
 // PURPOSE: A single animated number.
-//          Counts up from 0 to `value` when it enters the viewport.
-//          Used everywhere we want to feel "alive" (sales, farmers, ₹ paid).
 "use client";
 
 import { motion, useInView, useMotionValue, useSpring } from "framer-motion";
@@ -11,8 +9,8 @@ import { cn } from "@/lib/utils";
 interface Props {
   value: number;
   label: string;
-  prefix?: string;   // "₹"
-  suffix?: string;   // "+", "kg", "%"
+  prefix?: string;
+  suffix?: string;
   decimals?: number;
   className?: string;
 }
@@ -51,14 +49,11 @@ export function Stat({ value, label, prefix = "", suffix = "", decimals = 0, cla
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.5 }}
-      className={cn(
-        "kk-card p-6 text-center",
-        className
-      )}
+      className={cn("kk-card p-6 text-center", className)}
     >
       <span
         ref={displayRef}
-        className="block text-3xl sm:text-4xl font-bold text-[var(--kk-lime)]"
+        className="block text-3xl sm:text-4xl font-bold text-[var(--kk-text)]"
       >
         {prefix}0{suffix}
       </span>
