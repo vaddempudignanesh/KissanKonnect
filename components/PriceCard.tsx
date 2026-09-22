@@ -38,8 +38,12 @@ export function PriceCard({ price, best }: Props) {
         best && "border-[var(--kk-lime)] shadow-[0_0_40px_rgba(169,227,75,0.25)]"
       )}
     >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
+   
+                  <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--kk-lime)]/15 text-[var(--kk-lime)] font-semibold uppercase tracking-wide">
+            {price.crop}
+          </span>
           <h3 className="font-semibold truncate">{price.market}</h3>
           {best && <span className="kk-badge">Best</span>}
         </div>

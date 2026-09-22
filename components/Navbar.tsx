@@ -1,15 +1,9 @@
-// components/Navbar.tsx
-// PURPOSE: Top navigation for the entire app.
-//          - Sticky, translucent glass effect
-//          - Shows different links when logged in as Farmer vs Buyer
-//          - Language toggle always visible
-//          - "Login" button switches to "Logout" when a role is active
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Leaf, UserCircle2, LogOut, Menu, X } from "lucide-react";
+import { Leaf, UserCircle2, LogOut, Menu, X, LogIn, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { AnimatedButton } from "./AnimatedButton";
 import { LanguageToggle } from "./LanguageToggle";
@@ -19,25 +13,46 @@ import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const { t } = useI18n();
-  const { role, farmer, buyer, logout } = useSession();
+  const { role, user, farmer, buyer, logout } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const links = [
     { href: "/", label: t("nav.home") },
     { href: "/market", label: t("nav.market") },
     ...(role === "farmer"
-      ? [{ href: "/farmer", label: t("nav.farmer") },
-         { href: "/farmer/buyers", label: "Buyers" },
-         { href: "/farmer/orders", label: "My Orders" }]
+      ? [
+          { href: "/farmer", label: t("nav.farmer") },
+          { href: "/farmer/buyers", label: "Buyers" },
+          { href: "/farmer/orders", label: "My Orders" },
+        ]
       : []),
     ...(role === "buyer"
-      ? [{ href: "/buyer", label: t("nav.buyer") },
-         { href: "/buyer/listings", label: "Browse" },
-         { href: "/buyer/orders", label: "My Orders" }]
+      ? [
+          { href: "/buyer", label: t("nav.buyer") },
+          { href: "/buyer/listings", label: "Browse" },
+          { href: "/buyer/orders", label: "My Orders" },
+        ]
       : []),
-    { href: "/tracking/ORD-2026-001", label: t("nav.tracking") },
   ];
+
+  const displayName = farmer?.name ?? buyer?.company_name ?? user?.name ?? "";
+
+  const onLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setMobileOpen(false);
+    try {
+      await logout();
+    } finally {
+      // Send them home
+      router.push("/");
+      // Small delay so the router transition feels smooth
+      setTimeout(() => setLoggingOut(false), 400);
+    }
+  };
 
   return (
     <motion.header
@@ -45,7 +60,7 @@ export function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="sticky top-0 z-50 backdrop-blur-xl
-                 bg-[rgba(10,15,13,0.75)]
+                 bg-[rgba(11,15,25,0.75)]
                  border-b border-[var(--kk-border)]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -55,7 +70,7 @@ export function Navbar() {
             <motion.div
               whileHover={{ rotate: 12, scale: 1.1 }}
               transition={{ type: "spring", stiffness: 300 }}
-              className="p-2 rounded-xl bg-[var(--kk-green)] text-[var(--kk-lime)]"
+              className="p-2 rounded-xl bg-[var(--kk-lime)]/15 text-[var(--kk-lime)]"
             >
               <Leaf className="w-5 h-5" />
             </motion.div>
@@ -78,10 +93,10 @@ export function Navbar() {
                   key={l.href}
                   href={l.href}
                   className={cn(
-                    "kk-nav-link text-sm font-medium transition-colors",
+                    "text-sm font-medium transition-colors",
                     active
                       ? "text-[var(--kk-lime)]"
-                      : "text-[var(--kk-text-dim)] hover:text-[var(--kk-text)]"
+                      : "text-[var(--kk-text-dim)] hover:text-[var(--kk-text)]",
                   )}
                 >
                   {l.label}
@@ -100,19 +115,54 @@ export function Navbar() {
                                 bg-[var(--kk-surface-2)] border border-[var(--kk-border)]">
                   <UserCircle2 className="w-4 h-4 text-[var(--kk-lime)]" />
                   <span className="text-sm text-[var(--kk-text)]">
-                    {farmer?.name ?? buyer?.name}
+                    {displayName}
                   </span>
                   <span className="kk-badge ml-1">
                     {role === "farmer" ? "Farmer" : "Buyer"}
                   </span>
                 </div>
-                <AnimatedButton variant="ghost" size="sm" onClick={logout}>
-                  <LogOut className="w-4 h-4" />
-                  {t("nav.logout")}
-                </AnimatedButton>
+                <button
+                  onClick={onLogout}
+                  disabled={loggingOut}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-semibold",
+                    "border border-[var(--kk-border)] text-[var(--kk-text-dim)]",
+                    "hover:border-[var(--kk-terracotta)] hover:text-[var(--kk-terracotta)]",
+                    "transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                  )}
+                >
+                  {loggingOut ? (
+                    <>
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent"
+                      />
+                      Logging out…
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-4 h-4" />
+                      {t("nav.logout")}
+                    </>
+                  )}
+                </button>
               </>
             ) : (
-              <LoginMenu />
+              <>
+                <Link href="/login">
+                  <AnimatedButton variant="ghost" size="sm">
+                    <LogIn className="w-4 h-4" />
+                    {t("nav.login")}
+                  </AnimatedButton>
+                </Link>
+                <Link href="/signup">
+                  <AnimatedButton variant="primary" size="sm">
+                    <UserPlus className="w-4 h-4" />
+                    Sign Up
+                  </AnimatedButton>
+                </Link>
+              </>
             )}
           </div>
 
@@ -149,15 +199,45 @@ export function Navbar() {
                   {l.label}
                 </Link>
               ))}
-              <div className="flex items-center gap-2 pt-2 border-t border-[var(--kk-border)]">
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--kk-border)]">
                 <LanguageToggle />
                 {role ? (
-                  <AnimatedButton variant="ghost" size="sm" onClick={logout}>
-                    <LogOut className="w-4 h-4" />
-                    {t("nav.logout")}
-                  </AnimatedButton>
+                  <button
+                    onClick={onLogout}
+                    disabled={loggingOut}
+                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-semibold
+                               border border-[var(--kk-border)] text-[var(--kk-text-dim)]
+                               hover:border-[var(--kk-terracotta)] hover:text-[var(--kk-terracotta)]
+                               disabled:opacity-50 transition-colors"
+                  >
+                    {loggingOut ? (
+                      <>
+                        <motion.span
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent"
+                        />
+                        Logging out…
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="w-4 h-4" /> {t("nav.logout")}
+                      </>
+                    )}
+                  </button>
                 ) : (
-                  <LoginMenu mobile />
+                  <>
+                    <Link href="/login" onClick={() => setMobileOpen(false)}>
+                      <AnimatedButton variant="ghost" size="sm">
+                        <LogIn className="w-4 h-4" /> Login
+                      </AnimatedButton>
+                    </Link>
+                    <Link href="/signup" onClick={() => setMobileOpen(false)}>
+                      <AnimatedButton variant="primary" size="sm">
+                        <UserPlus className="w-4 h-4" /> Sign Up
+                      </AnimatedButton>
+                    </Link>
+                  </>
                 )}
               </div>
             </div>
@@ -165,58 +245,5 @@ export function Navbar() {
         )}
       </AnimatePresence>
     </motion.header>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* LoginMenu — dropdown with "Continue as Farmer" / "Continue as Buyer" */
-/* ------------------------------------------------------------------ */
-function LoginMenu({ mobile }: { mobile?: boolean }) {
-  const { t } = useI18n();
-  const { loginAsFarmer, loginAsBuyer } = useSession();
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <AnimatedButton
-        variant="primary"
-        size="sm"
-        onClick={() => setOpen((v) => !v)}
-      >
-        {t("nav.login")}
-      </AnimatedButton>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-            className={cn(
-              "absolute right-0 mt-2 w-56 p-2 rounded-2xl",
-              "bg-[var(--kk-surface)] border border-[var(--kk-border)]",
-              "shadow-[0_20px_60px_rgba(0,0,0,0.5)]",
-              mobile && "static mt-3 w-full"
-            )}
-          >
-            <button
-              onClick={() => { loginAsFarmer(); setOpen(false); }}
-              className="w-full text-left px-3 py-2 rounded-xl text-sm
-                         hover:bg-[var(--kk-surface-2)] transition-colors"
-            >
-              🌾 {t("nav.role.farmer")}
-            </button>
-            <button
-              onClick={() => { loginAsBuyer(); setOpen(false); }}
-              className="w-full text-left px-3 py-2 rounded-xl text-sm
-                         hover:bg-[var(--kk-surface-2)] transition-colors"
-            >
-              🏢 {t("nav.role.buyer")}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }

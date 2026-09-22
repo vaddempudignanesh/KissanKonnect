@@ -1,18 +1,13 @@
-// components/BuyerOfferCard.tsx
-// PURPOSE: One buyer offer row on the farmer's "Buyers" page.
-//          Shows the buyer's brand, rating, distance, offer price, and
-//          a big Accept button. Accepting triggers a toast + navigates to
-//          the tracking page for the new order.
 "use client";
 
 import { motion } from "framer-motion";
 import { Star, MapPin, CheckCircle2, Truck, Award } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Buyer, createOrder } from "@/lib/db";
 import { AnimatedButton } from "./AnimatedButton";
 import { useToast } from "./Toast";
 import { formatINR, cn } from "@/lib/utils";
+import type { DbBuyer as Buyer } from "@/lib/types";
 
 interface Props {
   buyer: Buyer;
@@ -37,17 +32,41 @@ export function BuyerOfferCard({
   const onAccept = async () => {
     setAccepting(true);
     try {
-          const order = await createOrder({
-        listingId: Number(listingId),
-        buyerId: buyer.id,
-        pricePerKg,
-        quantityKg,
+      // 1. Create an offer for this buyer on this listing
+      const offerRes = await fetch("/api/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingId: Number(listingId),
+          buyerId: buyer.id,
+          pricePerKg,
+          quantityKg,
+          message: message ?? null,
+        }),
       });
+      if (!offerRes.ok) {
+        const err = await offerRes.json().catch(() => ({}));
+        throw new Error(err.error || "Could not create offer");
+      }
+      const { offer } = await offerRes.json();
+
+      // 2. Accept it → creates an order in a transaction
+      const orderRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offerId: offer.id }),
+      });
+      if (!orderRes.ok) {
+        const err = await orderRes.json().catch(() => ({}));
+        throw new Error(err.error || "Could not create order");
+      }
+      const { order } = await orderRes.json();
+
       setAccepted(true);
       toast(`Order placed with ${buyer.name} — ₹${total.toLocaleString("en-IN")}`);
-      setTimeout(() => router.push(`/tracking/${order.id}`), 1200);
-    } catch {
-      toast("Could not create order");
+      setTimeout(() => router.push(`/tracking/${order.order_number}`), 1200);
+    } catch (e: any) {
+      toast(e.message ?? "Could not create order");
       setAccepting(false);
     }
   };
@@ -61,7 +80,7 @@ export function BuyerOfferCard({
       whileHover={{ y: -4 }}
       className={cn(
         "kk-card p-6 flex flex-col gap-5 relative",
-        best && "border-[var(--kk-lime)] shadow-[0_0_50px_rgba(169,227,75,0.25)]"
+        best && "border-[var(--kk-lime)] shadow-[0_0_50px_rgba(59,130,246,0.25)]"
       )}
     >
       {best && (
@@ -72,7 +91,6 @@ export function BuyerOfferCard({
         </div>
       )}
 
-      {/* Header: brand tile + name + meta */}
       <div className="flex items-start gap-4">
         <div
           className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
@@ -99,14 +117,12 @@ export function BuyerOfferCard({
         </div>
       </div>
 
-      {/* Message */}
       {message && (
         <p className="text-sm text-[var(--kk-text-dim)] italic">
           "{message}"
         </p>
       )}
 
-      {/* Numbers grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-[var(--kk-surface-2)] p-3">
           <div className="text-xs text-[var(--kk-text-dim)]">Offer per kg</div>
@@ -122,7 +138,6 @@ export function BuyerOfferCard({
         </div>
       </div>
 
-      {/* Accept */}
       <div className="mt-auto">
         {accepted ? (
           <div className="flex items-center gap-2 text-[var(--kk-lime)] text-sm font-medium py-3">

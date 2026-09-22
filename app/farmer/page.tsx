@@ -1,429 +1,208 @@
-// app/market/page.tsx
-// PURPOSE: Market prices page — dynamic fetching by State + District.
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
-  TrendingUp, MapPin, IndianRupee, Filter, Sparkles, Search, Loader2,
-  RefreshCw, WifiOff, ChevronDown, Check, X,
+  Sprout, Package, Plus, ArrowRight, Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { PriceCard } from "@/components/PriceCard";
 import { DashboardStat } from "@/components/DashboardStat";
-import { Crop, Price } from "@/lib/db";
-import { INDIA_STATES_DATA } from "@/lib/geoData";
-import { fuzzyFilterPrices } from "@/lib/mandiApi";
-import { cn } from "@/lib/utils";
+import { AnimatedButton } from "@/components/AnimatedButton";
+import { useSession } from "@/lib/session";
+import { formatINR } from "@/lib/utils";
+import type { DbOrder as Order, DbListing as Listing } from "@/lib/types";
 
-type SortMode = "distance" | "price" | "trend";
-const CROPS: (Crop | "All")[] = ["All", "Tomato", "Onion", "Potato", "Wheat", "Rice"];
+export default function FarmerDashboard() {
+  const { farmer } = useSession();
+  const router = useRouter();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
 
-interface ApiResponse {
-  ok: boolean;
-  source: "govt" | "seed";
-  count?: number;
-  prices: Price[];
-  note?: string;
-}
-
-export default function MarketPage() {
-  const [all, setAll] = useState<Price[]>([]);
-  const [source, setSource] = useState<"govt" | "seed" | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fallbackNote, setFallbackNote] = useState<string | null>(null);
-  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
-
-  const [crop, setCrop] = useState<Crop>("Tomato");
-  const [sort, setSort] = useState<SortMode>("distance");
-
-  const [selectedState, setSelectedState] = useState<string | null>(null);
-  const [selectedDistrict, setSelectedDistrict] = useState<string>("All");
-  const [stateQuery, setStateQuery] = useState("");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const [query, setQuery] = useState("");
-
-  // Close dropdown on outside click
   useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
-
-  const stateSuggestions = useMemo(() => {
-    const q = stateQuery.trim().toLowerCase();
-    if (!q) return INDIA_STATES_DATA;
-    return INDIA_STATES_DATA.filter((s) => s.state.toLowerCase().includes(q));
-  }, [stateQuery]);
-
-  const districtsForState = useMemo(() => {
-    if (!selectedState) return [];
-    return INDIA_STATES_DATA.find((s) => s.state === selectedState)?.districts ?? [];
-  }, [selectedState]);
-
-  // -------------------------------------------------------------------------
-  // Fetch
-  // -------------------------------------------------------------------------
-  const fetchPrices = useCallback(async (
-    targetCrop: Crop,
-    targetState: string | null,
-    targetDistrict: string,
-  ) => {
-    setLoading(true);
-    setError(null);
-    setFallbackNote(null);
-
-    try {
-      const params = new URLSearchParams();
-      params.set("crop", targetCrop);
-      params.set("limit", "500");
-      if (targetState) params.set("state", targetState);
-      if (targetDistrict && targetDistrict !== "All") {
-        params.set("district", targetDistrict);
-      }
-
-      const url = `/api/mandi?${params.toString()}`;
-      console.log("[market] fetching", url);
-
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = (await res.json()) as ApiResponse;
-      console.log("[market] received", data.count ?? data.prices.length, "records from", data.source);
-
-      setAll(data.prices ?? []);
-      setSource(data.source);
-      setLastFetchedAt(Date.now());
-      setFallbackNote(data.note ?? null);
-
-      if (!data.prices || data.prices.length === 0) {
-        setError(
-          `No records found for ${targetCrop}${
-            targetState ? ` in ${targetState}` : ""
-          }${targetDistrict !== "All" ? ` / ${targetDistrict}` : ""}.`,
+    (async () => {
+      if (!farmer) { setLoading(false); return; }
+      try {
+        const [oRes, lRes] = await Promise.all([
+          fetch(`/api/orders?farmerId=${farmer.id}`),
+          fetch(`/api/listings`),
+        ]);
+        const oJson = await oRes.json();
+        const lJson = await lRes.json();
+        setOrders(oJson.orders ?? []);
+        setListings(
+          (lJson.listings ?? []).filter(
+            (l: Listing) => l.farmer_id === farmer.id,
+          ),
         );
+      } catch (e) {
+        console.error("[farmer dashboard] fetch failed", e);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("[market] fetch error:", err);
-      setError("Could not fetch prices. Check your internet connection.");
-      setAll([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    })();
+  }, [farmer]);
 
-  useEffect(() => {
-    fetchPrices(crop, selectedState, selectedDistrict);
-  }, [crop, selectedState, selectedDistrict, fetchPrices]);
-
-  useEffect(() => {
-    setSelectedDistrict("All");
-  }, [selectedState]);
-
-  // Client-side filter + sort
-  const visible = useMemo(() => {
-    let list = query.trim() ? fuzzyFilterPrices(all, query) : all;
-    const sorted = [...list];
-    if (sort === "distance") sorted.sort((a, b) => a.distanceKm - b.distanceKm);
-    else if (sort === "price") sorted.sort((a, b) => b.price - a.price);
-       else {
-      const rank: Record<"up" | "down" | "flat", number> = { up: 0, flat: 1, down: 2 };
-      sorted.sort((a, b) =>
-        rank[a.trend as "up" | "down" | "flat"] -
-        rank[b.trend as "up" | "down" | "flat"]
-      );
-    }
-    return sorted;
-  }, [all, sort, query]);
-
-  const highest = useMemo(() => (visible.length ? Math.max(...visible.map((p) => p.price)) : 0), [visible]);
-  const lowest = useMemo(() => (visible.length ? Math.min(...visible.map((p) => p.price)) : 0), [visible]);
-  const avgPrice = useMemo(() => {
-    if (!visible.length) return 0;
-    return Math.round(visible.reduce((s, p) => s + p.price, 0) / visible.length);
-  }, [visible]);
-
-  const cacheAgeLabel = useMemo(() => {
-    if (!lastFetchedAt) return "";
-    const mins = Math.round((Date.now() - lastFetchedAt) / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    return `${Math.round(mins / 60)}h ago`;
-  }, [lastFetchedAt]);
+  const totalEarned = orders.reduce(
+    (s, o) => s + Number(o.netToFarmer ?? 0),
+    0,
+  );
+  const activeListings = listings.filter((l) => l.status === "active").length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-20">
+    <div>
       <PageHeader
-        badge="Market Prices · Live"
-        badgeIcon={TrendingUp}
-        title="Real-time Mandi Prices"
-        subtitle="Select a state and district to query precise agricultural market rates."
+        badge="Farmer Dashboard"
+        badgeIcon={Sprout}
+        title={`Welcome, ${farmer?.name ?? "Farmer"}`}
+        subtitle={`${farmer?.village ?? "Village"}, ${farmer?.state ?? "India"} · Rating ${farmer?.rating ?? 5} ⭐`}
         actions={
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border",
-                loading
-                  ? "bg-[rgba(244,163,0,0.1)] text-[var(--kk-amber)] border-[rgba(244,163,0,0.3)]"
-                  : source === "govt"
-                    ? "bg-[rgba(169,227,75,0.1)] text-[var(--kk-lime)] border-[rgba(169,227,75,0.3)]"
-                    : "bg-[rgba(244,163,0,0.1)] text-[var(--kk-amber)] border-[rgba(244,163,0,0.3)]",
-              )}
+          <>
+            <AnimatedButton
+              size="md"
+              onClick={() => router.push("/farmer/list-produce")}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              {loading
-                ? "Fetching…"
-                : source === "govt"
-                  ? `Live · ${visible.length} rows`
-                  : `Cached · ${cacheAgeLabel}`}
-            </span>
-            <button
-              onClick={() => fetchPrices(crop, selectedState, selectedDistrict)}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
-                         border border-[var(--kk-border)] text-[var(--kk-text-dim)]
-                         hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)]
-                         disabled:opacity-50 transition-colors"
+              <Plus className="w-4 h-4" /> New Listing
+            </AnimatedButton>
+            <AnimatedButton
+              variant="ghost"
+              size="md"
+              onClick={() => router.push("/farmer/buyers")}
             >
-              <RefreshCw className={cn("w-3 h-3", loading && "animate-spin")} />
-              Refresh
-            </button>
-          </div>
+              <Users className="w-4 h-4" /> View Buyers
+            </AnimatedButton>
+          </>
         }
       />
 
-      {/* Fallback banner */}
-      {fallbackNote && !loading && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 px-4 py-3 rounded-2xl border border-[var(--kk-amber)]
-                     bg-[rgba(244,163,0,0.08)] text-sm text-[var(--kk-amber)]
-                     flex items-start gap-2"
-        >
-          <span className="text-lg leading-none">💡</span>
-          <span>{fallbackNote}</span>
-        </motion.div>
-      )}
-
-      {/* State Picker */}
-      <div className="mt-8 relative" ref={dropdownRef}>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--kk-text-dim)] mb-2">
-          State (Type e.g., "Andhra", "Maharashtra", "delhi")
-        </label>
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--kk-text-dim)]" />
-          <input
-            type="text"
-            value={stateQuery}
-            onChange={(e) => { setStateQuery(e.target.value); setDropdownOpen(true); }}
-            onFocus={() => setDropdownOpen(true)}
-            placeholder="Type state name..."
-            className="w-full pl-11 pr-10 py-3.5 rounded-2xl bg-[var(--kk-surface-2)]
-                       border border-[var(--kk-border)] text-[var(--kk-text)]
-                       placeholder:text-[var(--kk-text-dim)]/60
-                       focus:outline-none focus:border-[var(--kk-lime)] transition-all"
-          />
-          {selectedState ? (
-            <button
-              onClick={() => { setSelectedState(null); setStateQuery(""); }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--kk-text-dim)] hover:text-[var(--kk-terracotta)]"
-              title="Clear state"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          ) : (
-            <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-[var(--kk-text-dim)] pointer-events-none" />
-          )}
-        </div>
-
-        <AnimatePresence>
-          {dropdownOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15 }}
-              className="absolute z-50 left-0 right-0 mt-2 max-h-72 overflow-y-auto rounded-2xl bg-[var(--kk-surface)] border border-[var(--kk-border)] shadow-2xl"
-            >
-              {stateSuggestions.length > 0 ? (
-                stateSuggestions.map((item) => (
-                  <button
-                    key={item.state}
-                    onClick={() => {
-                      setSelectedState(item.state);
-                      setStateQuery(item.state);
-                      setDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-sm text-[var(--kk-text)]
-                               hover:bg-[var(--kk-surface-2)] cursor-pointer flex items-center justify-between transition-colors"
-                  >
-                    <span>{item.state}</span>
-                    {selectedState === item.state && <Check className="w-4 h-4 text-[var(--kk-lime)]" />}
-                  </button>
-                ))
-              ) : (
-                <div className="px-4 py-3 text-sm text-[var(--kk-text-dim)]">
-                  No states match "{stateQuery}"
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <DashboardStat
+          emoji="💰"
+          value={totalEarned}
+          label="Total earned"
+          prefix="₹"
+          accent="#3B82F6"
+          delay={0}
+        />
+        <DashboardStat
+          emoji="📦"
+          value={orders.length}
+          label="Total orders"
+          accent="#60A5FA"
+          delay={0.05}
+        />
+        <DashboardStat
+          emoji="🌾"
+          value={activeListings}
+          label="Active listings"
+          accent="#93C5FD"
+          delay={0.1}
+        />
+        <DashboardStat
+          emoji="🚚"
+          value={orders.filter((o) => o.status === "in_transit").length}
+          label="In transit"
+          accent="#64748B"
+          delay={0.15}
+        />
       </div>
 
-      {/* District chips */}
-      {selectedState && districtsForState.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--kk-text-dim)] mb-3">
-            Select District in {selectedState}
-          </label>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 rounded-2xl bg-[var(--kk-surface)] border border-[var(--kk-border)]">
-            <button
-              onClick={() => setSelectedDistrict("All")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
-                selectedDistrict === "All"
-                  ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)] shadow-lg"
-                  : "bg-[var(--kk-surface-2)] text-[var(--kk-text-dim)] border-[var(--kk-border)] hover:border-[var(--kk-lime)]"
-              )}
-            >
-              All Districts
-            </button>
-            {districtsForState.map((d) => (
-              <button
-                key={d}
-                onClick={() => setSelectedDistrict(d)}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
-                  selectedDistrict === d
-                    ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)] shadow-lg"
-                    : "bg-[var(--kk-surface-2)] text-[var(--kk-text-dim)] border-[var(--kk-border)] hover:border-[var(--kk-lime)]"
-                )}
+      <div className="grid md:grid-cols-3 gap-4 mt-10">
+        {[
+          {
+            icon: Plus,
+            title: "List new produce",
+            desc: "Add your harvest to the marketplace",
+            href: "/farmer/list-produce",
+          },
+          {
+            icon: Users,
+            title: "See buyer offers",
+            desc: "Compare and accept the best bid",
+            href: "/farmer/buyers",
+          },
+          {
+            icon: Package,
+            title: "Track your orders",
+            desc: "Live status of every shipment",
+            href: "/farmer/orders",
+          },
+        ].map((a, i) => (
+          <motion.button
+            key={a.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 + i * 0.08, duration: 0.5 }}
+            whileHover={{ y: -6, scale: 1.02 }}
+            onClick={() => router.push(a.href)}
+            className="kk-card p-6 text-left group"
+          >
+            <div className="p-3 rounded-xl bg-[var(--kk-lime)]/10 text-[var(--kk-lime)] w-fit group-hover:scale-110 transition-transform">
+              <a.icon className="w-5 h-5" />
+            </div>
+            <h3 className="mt-4 font-semibold">{a.title}</h3>
+            <p className="mt-1 text-sm text-[var(--kk-text-dim)]">{a.desc}</p>
+            <div className="mt-4 flex items-center gap-1 text-sm text-[var(--kk-lime)] opacity-60 group-hover:opacity-100 transition-opacity">
+              Open <ArrowRight className="w-4 h-4" />
+            </div>
+          </motion.button>
+        ))}
+      </div>
+
+      {!loading && orders.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-xl font-semibold mb-5">Recent orders</h2>
+          <div className="space-y-3">
+            {orders.slice(0, 3).map((o) => (
+              <motion.div
+                key={o.id}
+                whileHover={{ x: 4 }}
+                onClick={() => router.push(`/tracking/${o.id}`)}
+                className="kk-card p-5 flex items-center gap-4 cursor-pointer"
               >
-                {d}
-              </button>
+                <div className="text-3xl">
+                  {o.crop === "Tomato"
+                    ? "🍅"
+                    : o.crop === "Wheat"
+                      ? "🌾"
+                      : o.crop === "Onion"
+                        ? "🧅"
+                        : "🥔"}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold">{o.id}</div>
+                  <div className="text-sm text-[var(--kk-text-dim)]">
+                    {o.quantityKg} kg · to {o.company_name ?? "buyer"}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-[var(--kk-lime)]">
+                    {formatINR(Number(o.netToFarmer))}
+                  </div>
+                  <div className="text-xs text-[var(--kk-text-dim)]">
+                    Net to you
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-[var(--kk-text-dim)]" />
+              </motion.div>
             ))}
           </div>
-        </motion.div>
-      )}
-
-      {/* Crop chips */}
-      <div className="mt-8 flex flex-wrap items-center gap-2">
-        <span className="text-sm text-[var(--kk-text-dim)] flex items-center gap-1 mr-2">
-          <Filter className="w-4 h-4" /> Crop:
-        </span>
-        {CROPS.map((c) => (
-          <button
-            key={c}
-            onClick={() => setCrop(c === "All" ? "Tomato" : c)}
-            className={cn(
-              "px-3.5 py-1.5 rounded-full text-sm font-medium transition-all border",
-              crop === c
-                ? "bg-[var(--kk-lime)] text-[#0A0F0D] border-[var(--kk-lime)] shadow-[0_0_20px_rgba(169,227,75,0.4)]"
-                : "border-[var(--kk-border)] text-[var(--kk-text-dim)] hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)]"
-            )}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-
-      {/* Client-side search */}
-      <div className="mt-6 relative">
-        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--kk-text-dim)]" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Filter loaded results — try 'Nashik', 'Nasik', 'Bengaluru'…"
-          className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[var(--kk-surface-2)]
-                     border border-[var(--kk-border)] text-[var(--kk-text)]
-                     placeholder:text-[var(--kk-text-dim)]/60
-                     focus:outline-none focus:border-[var(--kk-lime)] transition-all"
-        />
-        {query && (
-          <button
-            onClick={() => setQuery("")}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[var(--kk-text-dim)] hover:text-[var(--kk-lime)]"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-
-      {/* Sort tabs */}
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <span className="text-sm text-[var(--kk-text-dim)] mr-2">Sort by:</span>
-        {([
-          { id: "distance", label: "Nearest first", icon: MapPin },
-          { id: "price",    label: "Highest ₹",     icon: IndianRupee },
-          { id: "trend",    label: "Rising",        icon: TrendingUp },
-        ] as const).map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setSort(id)}
-            className={cn(
-              "px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 border",
-              sort === id
-                ? "bg-[var(--kk-green)] text-white border-[var(--kk-green)]"
-                : "border-[var(--kk-border)] text-[var(--kk-text-dim)] hover:border-[var(--kk-green-light)]"
-            )}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-        <DashboardStat emoji="🏬" value={visible.length} label="Mandis found" accent="#2E8B57" delay={0} />
-        <DashboardStat emoji="💎" value={highest} label="Best ₹/kg" prefix="₹" accent="#A9E34B" delay={0.05} />
-        <DashboardStat emoji="📊" value={avgPrice} label="Avg ₹/kg" prefix="₹" accent="#F4A300" delay={0.1} />
-        <DashboardStat emoji="📉" value={lowest} label="Lowest ₹/kg" prefix="₹" accent="#C75B39" delay={0.15} />
-      </div>
-
-      {/* Loading */}
-      {loading && (
-        <div className="mt-16 flex items-center justify-center text-[var(--kk-text-dim)]">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          Fetching live records for {crop}
-          {selectedState ? ` in ${selectedState}` : ""}
-          {selectedDistrict !== "All" ? ` / ${selectedDistrict}` : ""}…
         </div>
       )}
 
-      {/* Error */}
-      {!loading && error && (
-        <div className="mt-16 kk-card p-8 text-center border-[var(--kk-terracotta)]">
-          <WifiOff className="w-8 h-8 text-[var(--kk-terracotta)] mx-auto mb-3" />
-          <div className="text-sm text-[var(--kk-text-dim)]">{error}</div>
-          <button
-            onClick={() => fetchPrices(crop, selectedState, selectedDistrict)}
-            className="mt-4 px-4 py-2 rounded-xl border border-[var(--kk-border)] text-sm hover:border-[var(--kk-lime)] hover:text-[var(--kk-lime)] transition-colors"
-          >
-            Try again
-          </button>
+      {!loading && orders.length === 0 && (
+        <div className="mt-12 kk-card p-12 text-center">
+          <div className="text-5xl mb-3">🌱</div>
+          <p className="text-[var(--kk-text-dim)]">
+            No orders yet. List your produce to start selling.
+          </p>
+          <div className="mt-5">
+            <AnimatedButton onClick={() => router.push("/farmer/list-produce")}>
+              <Plus className="w-4 h-4" /> List Produce
+            </AnimatedButton>
+          </div>
         </div>
-      )}
-
-      {/* Grid */}
-      {!loading && !error && (
-        <motion.div layout className="grid md:grid-cols-2 gap-4 mt-8">
-          <AnimatePresence mode="popLayout">
-            {visible.map((p, i) => (
-              <PriceCard key={p.id} price={p} best={sort === "price" && i === 0} />
-            ))}
-          </AnimatePresence>
-        </motion.div>
       )}
     </div>
   );

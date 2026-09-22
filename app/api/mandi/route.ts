@@ -1,179 +1,163 @@
-// app/api/mandi/route.ts
-// PURPOSE: Server-side proxy for the Government of India Mandi Prices API.
-//
-//   GET /api/mandi?crop=Tomato&state=Delhi&district=New%20Delhi&limit=500
-//   GET /api/mandi?crop=all
-//   GET /api/mandi?crop=Onion&state=Maharashtra
-//
-// Behavior:
-//   1. Try crop + state + district
-//   2. If 0 rows → retry with crop + state (drop district)
-//   3. If still 0 → retry with crop only (all India)
-//   4. If still 0 → fall back to seed data (FILTERED by state/district)
-//   The user always sees something, and the response includes a `note`
-//   explaining what happened.
 import { NextRequest, NextResponse } from "next/server";
-import { fetchMandiPrices, toGovtStateName } from "@/lib/mandiApi";
-import { getPrices, type Crop } from "@/lib/db";
+import { query } from "@/lib/db-client";
+import { calculateDistance } from "@/lib/utils";
 
 export const runtime = "nodejs";
-export const revalidate = process.env.NODE_ENV === "production" ? 1800 : 0;
+export const revalidate = 0;
 
-const VALID_CROPS: Crop[] = ["Tomato", "Onion", "Potato", "Wheat", "Rice"];
+const STATE_COORDS: Record<string, { lat: number; lng: number }> = {
+  "Maharashtra":       { lat: 19.75, lng: 75.71 },
+  "Delhi":             { lat: 28.61, lng: 77.20 },
+  "Karnataka":         { lat: 12.97, lng: 77.59 },
+  "Telangana":         { lat: 17.38, lng: 78.48 },
+  "Tamil Nadu":        { lat: 13.08, lng: 80.27 },
+  "Kerala":            { lat: 8.52,  lng: 76.93 },
+  "Keralam":           { lat: 8.52,  lng: 76.93 },
+  "Gujarat":           { lat: 23.02, lng: 72.57 },
+  "Rajasthan":         { lat: 26.91, lng: 75.79 },
+  "Punjab":            { lat: 30.90, lng: 75.85 },
+  "Haryana":           { lat: 29.06, lng: 76.08 },
+  "Uttar Pradesh":     { lat: 26.85, lng: 80.95 },
+  "Madhya Pradesh":    { lat: 23.25, lng: 77.41 },
+  "West Bengal":       { lat: 22.57, lng: 88.36 },
+  "Andhra Pradesh":    { lat: 17.68, lng: 83.21 },
+  "Odisha":            { lat: 20.29, lng: 85.82 },
+  "Bihar":             { lat: 25.59, lng: 85.13 },
+  "Jharkhand":         { lat: 23.34, lng: 85.31 },
+  "Chhattisgarh":      { lat: 21.25, lng: 81.62 },
+  "Assam":             { lat: 26.14, lng: 91.73 },
+  "Uttarakhand":       { lat: 30.31, lng: 78.03 },
+  "Himachal Pradesh":  { lat: 31.10, lng: 77.17 },
+  "Goa":               { lat: 15.49, lng: 73.82 },
+  "Puducherry":        { lat: 11.93, lng: 79.83 },
+  "Chandigarh":        { lat: 30.73, lng: 76.77 },
+  "Jammu and Kashmir": { lat: 33.78, lng: 78.10 },
+  "Ladakh":            { lat: 34.15, lng: 77.57 },
+};
+const ORIGIN = { lat: 19.9975, lng: 73.7898 };
+
+interface DbRow {
+  state: string;
+  district: string;
+  market: string;
+  commodity: string;
+  arrival_date: string;
+  min_price: number;
+  max_price: number;
+  modal_price: number;
+}
+
+interface Price {
+  id: string;
+  crop: string;
+  market: string;
+  city: string;
+  state: string;
+  price: number;
+  distanceKm: number;
+  trend: "up" | "down" | "flat";
+  updatedAt: string;
+}
+
+function toPrice(row: DbRow, idx: number): Price {
+  const coords = STATE_COORDS[row.state] ?? { lat: 20, lng: 78 };
+  const distanceKm = calculateDistance(ORIGIN.lat, ORIGIN.lng, coords.lat, coords.lng);
+
+  const spread = Number(row.max_price) - Number(row.min_price);
+  const mid = (Number(row.min_price) + Number(row.max_price)) / 2;
+  const modal = Number(row.modal_price);
+  let trend: "up" | "down" | "flat" = "flat";
+  if (mid > 0 && spread / mid > 0.15) trend = modal >= mid ? "up" : "down";
+  else if (spread > 0 && modal === Number(row.max_price)) trend = "up";
+  else if (spread > 0 && modal === Number(row.min_price)) trend = "down";
+
+  return {
+    id: `db-${idx}-${row.market}-${row.commodity}`.replace(/\s+/g, "-"),
+    crop: row.commodity,
+    market: row.market,
+    city: row.district,
+    state: row.state,
+    price: Math.round((Number(row.modal_price) / 100) * 100) / 100,
+    distanceKm,
+    trend,
+    updatedAt: new Date(row.arrival_date).toISOString(),
+  };
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
-  const cropParam = searchParams.get("crop") ?? "Tomato";
-  const stateRaw  = searchParams.get("state") ?? "";
-  const district  = searchParams.get("district") ?? "";
-  const limit     = Number(searchParams.get("limit") ?? "2000");
+  const crop     = searchParams.get("crop") ?? "";
+  const state    = searchParams.get("state") ?? "";
+  const district = searchParams.get("district") ?? "";
+  const q        = searchParams.get("q") ?? "";
+  const limit    = Math.min(Number(searchParams.get("limit") ?? 1000), 2000);
 
-  const state = stateRaw ? toGovtStateName(stateRaw) : "";
+  // Debug: log exactly what came in
+  console.log("[/api/mandi] params:", { crop, state, district, q, limit });
 
   try {
-    // =========================================================================
-    // BULK MODE
-    // =========================================================================
-    if (cropParam === "all") {
-      const [tomato, onion, potato, wheat, rice] = await Promise.all([
-        fetchMandiPrices({ crop: "Tomato", limit }),
-        fetchMandiPrices({ crop: "Onion",  limit }),
-        fetchMandiPrices({ crop: "Potato", limit }),
-        fetchMandiPrices({ crop: "Wheat",  limit }),
-        fetchMandiPrices({ crop: "Rice",   limit }),
-      ]);
-      const all = [...tomato, ...onion, ...potato, ...wheat, ...rice];
-      if (all.length > 0) {
-        return NextResponse.json({
-          ok: true, source: "govt",
-          fetchedAt: new Date().toISOString(),
-          count: all.length, prices: all,
-        });
-      }
-      const seed = await getPrices();
-      return NextResponse.json({
-        ok: true, source: "seed",
-        fetchedAt: new Date().toISOString(),
-        count: seed.length, prices: seed,
-      });
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (crop && crop !== "All" && crop !== "all") {
+      params.push(crop);
+      conditions.push(`commodity = $${params.length}`);
     }
 
-    // =========================================================================
-    // SINGLE CROP — 4-tier fallback
-    // =========================================================================
-    const crop: Crop = VALID_CROPS.includes(cropParam as Crop)
-      ? (cropParam as Crop)
-      : "Tomato";
-
-    console.log(
-      `[/api/mandi] crop=${crop} state=${state || "any"} district=${district || "any"} limit=${limit}`,
-    );
-
-    // -------- Attempt 1: crop + state + district --------
-    let prices = await fetchMandiPrices({
-      crop,
-      state: state || undefined,
-      district: district !== "All" && district ? district : undefined,
-      limit,
-    });
-    let note: string | undefined;
-
-    // -------- Attempt 2: drop district, retry with state --------
-    if (prices.length === 0 && district && district !== "All" && state) {
-      console.log(
-        `[/api/mandi] district=${district} returned 0 — retrying without district`,
-      );
-      prices = await fetchMandiPrices({ crop, state, limit });
-      if (prices.length > 0) {
-        note = `No ${crop} arrivals in ${district} today — showing nearby mandis across ${state}.`;
-      }
-    }
-
-    // -------- Attempt 3: drop state too, retry all India --------
-    if (prices.length === 0 && state) {
-      console.log(
-        `[/api/mandi] state=${state} returned 0 — retrying across all India`,
-      );
-      prices = await fetchMandiPrices({ crop, limit });
-      if (prices.length > 0) {
-        note = `No ${crop} arrivals in ${state} today — showing all-India mandis.`;
-      }
-    }
-
-    if (prices.length > 0) {
-      return NextResponse.json({
-        ok: true, source: "govt",
-        fetchedAt: new Date().toISOString(),
-        count: prices.length, prices, note,
-      });
-    }
-
-    // -------- Attempt 4: seed fallback (filtered by user's state/district) --------
-    console.warn(
-      `[/api/mandi] 0 rows from govt for ${crop} — falling back to seed`,
-    );
-    const seedAll = await getPrices(crop);
-
-    // Respect the user's state filter when possible.
-    // NOTE: seed data's `state` uses the same names as the UI geoData
-    // ("Maharashtra", "Uttar Pradesh", etc.). We compare against the ORIGINAL
-    // stateRaw (not govtState) because the seed list was authored with UI names.
-    let seed = seedAll;
-    const uiState = stateRaw.trim();
-    if (uiState) {
-      const stateFiltered = seedAll.filter((p) => p.state === uiState);
-      if (stateFiltered.length > 0) seed = stateFiltered;
+    if (state && state !== "All") {
+      params.push(state);
+      conditions.push(`state = $${params.length}`);
     }
 
     if (district && district !== "All") {
-      const districtFiltered = seed.filter(
-        (p) => p.city.toLowerCase() === district.toLowerCase(),
-      );
-      if (districtFiltered.length > 0) seed = districtFiltered;
+      params.push(district);
+      conditions.push(`district = $${params.length}`);
     }
 
-    // If the filter produced nothing, be honest about it.
-    if (seed.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        source: "seed",
-        fetchedAt: new Date().toISOString(),
-        count: 0,
-        prices: [],
-        note:
-          `No ${crop} arrivals reported in ` +
-          `${district !== "All" && district ? district + ", " : ""}${uiState || "India"} today. ` +
-          `Try a different district or state.`,
-      });
+    if (q.trim()) {
+      params.push(`%${q.trim()}%`);
+      const p = params.length;
+      conditions.push(
+        `(state ILIKE $${p} OR district ILIKE $${p} OR market ILIKE $${p} OR commodity ILIKE $${p})`,
+      );
     }
+
+    const whereSql = conditions.length > 0
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    params.push(limit);
+
+    const sql = `
+      SELECT state, district, market, commodity, arrival_date,
+             min_price, max_price, modal_price
+      FROM mandi_records
+      ${whereSql}
+      ORDER BY arrival_date DESC, modal_price DESC
+      LIMIT $${params.length}
+    `;
+
+    console.log("[/api/mandi] sql:", sql);
+    console.log("[/api/mandi] params:", params);
+
+    const rows = await query<DbRow>(sql, params);
+    const prices = rows.map((r, i) => toPrice(r, i));
+
+    console.log(`[/api/mandi] returned ${prices.length} rows`);
 
     return NextResponse.json({
       ok: true,
-      source: "seed",
+      source: "db",
       fetchedAt: new Date().toISOString(),
-      count: seed.length,
-      prices: seed,
-      note:
-        `No live ${crop} data available right now — ` +
-        `showing cached sample data for ${uiState || "India"}` +
-        `${district && district !== "All" ? ` / ${district}` : ""}.`,
+      count: prices.length,
+      prices,
     });
-  } catch (err) {
-    console.error("[/api/mandi] unhandled error:", err);
-    const seedAll = await getPrices();
-    const seed = state
-      ? seedAll.filter((p) => p.state === state)
-      : seedAll;
+  } catch (e: any) {
+    console.error("[/api/mandi]", e);
     return NextResponse.json(
-      {
-        ok: false, source: "seed",
-        fetchedAt: new Date().toISOString(),
-        count: seed.length, prices: seed,
-        error: String(err),
-        note: `Live data fetch failed — showing cached sample data for ${state || "India"}.`,
-      },
-      { status: 200 },
+      { ok: false, error: e.message, prices: [] },
+      { status: 500 },
     );
   }
 }

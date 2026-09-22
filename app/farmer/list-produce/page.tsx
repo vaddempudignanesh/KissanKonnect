@@ -1,5 +1,3 @@
-// app/farmer/list-produce/page.tsx
-// PURPOSE: Form for the farmer to create a new produce listing.
 "use client";
 
 import { useState } from "react";
@@ -13,8 +11,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { AnimatedButton } from "@/components/AnimatedButton";
 import { useToast } from "@/components/Toast";
 import { useSession } from "@/lib/session";
-import { createListing, Crop } from "@/lib/db";
 import { cn } from "@/lib/utils";
+import type { Crop } from "@/lib/types";
 
 const CROPS: { crop: Crop; emoji: string }[] = [
   { crop: "Tomato", emoji: "🍅" },
@@ -43,7 +41,7 @@ export default function ListProducePage() {
   const [state, setState] = useState<string>(farmer?.state ?? "");
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedCropEmoji = CROPS.find(c => c.crop === crop)?.emoji ?? "🍅";
+  const selectedCropEmoji = CROPS.find((c) => c.crop === crop)?.emoji ?? "🍅";
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,23 +56,28 @@ export default function ListProducePage() {
 
     setSubmitting(true);
     try {
-            await createListing({
-        farmerId: farmer.id,
-        cropId: 0,
-        crop,
-        quantityKg: q,
-        qualityGrade: quality,
-        quality,
-        expectedPrice: p,
-        village,
-        district: farmer.district,
-        state,
-        photo: selectedCropEmoji,
+      const res = await fetch("/api/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          farmerId: farmer.id,
+          crop,                 // server resolves name → crop_id
+          quantityKg: q,
+          qualityGrade: quality,
+          expectedPrice: p,
+          village,
+          district: farmer.district,
+          state,
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Publish failed");
+      }
       toast("Listing published! Finding best buyers…");
       setTimeout(() => router.push("/farmer/buyers"), 900);
-    } catch {
-      toast("Could not publish listing");
+    } catch (e: any) {
+      toast(e.message ?? "Could not publish listing");
       setSubmitting(false);
     }
   };
@@ -98,12 +101,10 @@ export default function ListProducePage() {
       />
 
       <form onSubmit={onSubmit} className="grid lg:grid-cols-3 gap-6">
-        {/* LEFT: form */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Crop picker */}
           <Section title="What are you selling?" icon={Sprout}>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {CROPS.map(c => {
+              {CROPS.map((c) => {
                 const active = crop === c.crop;
                 return (
                   <motion.button
@@ -116,7 +117,7 @@ export default function ListProducePage() {
                       "p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
                       active
                         ? "border-[var(--kk-lime)] bg-[var(--kk-lime)]/10 shadow-[0_0_30px_rgba(59,130,246,0.25)]"
-                        : "border-[var(--kk-border)] hover:border-[var(--kk-green-light)]"
+                        : "border-[var(--kk-border)] hover:border-[var(--kk-green-light)]",
                     )}
                   >
                     <span className="text-3xl">{c.emoji}</span>
@@ -129,32 +130,16 @@ export default function ListProducePage() {
             </div>
           </Section>
 
-          {/* Quantity + Price */}
           <Section title="Quantity and price" icon={Package}>
             <div className="grid sm:grid-cols-2 gap-4">
-              <InputField
-                icon={Scale}
-                label="Quantity (kg)"
-                value={quantity}
-                onChange={setQuantity}
-                type="number"
-                placeholder="700"
-              />
-              <InputField
-                icon={IndianRupee}
-                label="Expected price (₹/kg)"
-                value={expectedPrice}
-                onChange={setExpectedPrice}
-                type="number"
-                placeholder="22"
-              />
+              <InputField icon={Scale} label="Quantity (kg)" value={quantity} onChange={setQuantity} type="number" placeholder="700" />
+              <InputField icon={IndianRupee} label="Expected price (₹/kg)" value={expectedPrice} onChange={setExpectedPrice} type="number" placeholder="22" />
             </div>
           </Section>
 
-          {/* Quality */}
           <Section title="Quality grade" icon={Award}>
             <div className="space-y-2">
-              {QUALITIES.map(q => {
+              {QUALITIES.map((q) => {
                 const active = quality === q.value;
                 return (
                   <motion.button
@@ -166,13 +151,13 @@ export default function ListProducePage() {
                       "w-full text-left p-4 rounded-xl border transition-all flex items-center gap-4",
                       active
                         ? "border-[var(--kk-lime)] bg-[var(--kk-lime)]/10"
-                        : "border-[var(--kk-border)] hover:border-[var(--kk-green-light)]"
+                        : "border-[var(--kk-border)] hover:border-[var(--kk-green-light)]",
                     )}
                   >
                     <div
                       className={cn(
                         "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0",
-                        active ? "border-[var(--kk-lime)] bg-[var(--kk-lime)]" : "border-[var(--kk-border)]"
+                        active ? "border-[var(--kk-lime)] bg-[var(--kk-lime)]" : "border-[var(--kk-border)]",
                       )}
                     >
                       {active && <CheckCircle2 className="w-4 h-4 text-white" />}
@@ -187,41 +172,22 @@ export default function ListProducePage() {
             </div>
           </Section>
 
-          {/* Location */}
           <Section title="Pickup location" icon={MapPin}>
             <div className="grid sm:grid-cols-2 gap-4">
-              <InputField
-                icon={MapPin}
-                label="Village / Town"
-                value={village}
-                onChange={setVillage}
-                placeholder="Nashik"
-              />
-              <InputField
-                icon={MapPin}
-                label="State"
-                value={state}
-                onChange={setState}
-                placeholder="Maharashtra"
-              />
+              <InputField icon={MapPin} label="Village / Town" value={village} onChange={setVillage} placeholder="Nashik" />
+              <InputField icon={MapPin} label="State" value={state} onChange={setState} placeholder="Maharashtra" />
             </div>
           </Section>
 
-          {/* Photos (placeholder) */}
           <Section title="Photos (optional)" icon={Camera}>
             <div className="border-2 border-dashed border-[var(--kk-border)] rounded-2xl p-8 text-center hover:border-[var(--kk-lime)] transition-colors cursor-pointer">
               <Camera className="w-8 h-8 text-[var(--kk-text-dim)] mx-auto mb-3" />
-              <div className="text-sm text-[var(--kk-text-dim)]">
-                Click to upload · JPG / PNG · max 5 MB
-              </div>
-              <div className="text-xs text-[var(--kk-text-dim)] mt-1">
-                (Coming soon — skip for the demo)
-              </div>
+              <div className="text-sm text-[var(--kk-text-dim)]">Click to upload · JPG / PNG · max 5 MB</div>
+              <div className="text-xs text-[var(--kk-text-dim)] mt-1">(Coming soon — skip for the demo)</div>
             </div>
           </Section>
         </div>
 
-        {/* RIGHT: live preview + submit */}
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-4">
             <div className="kk-card p-6">
@@ -246,9 +212,7 @@ export default function ListProducePage() {
                 </div>
                 <div className="mt-3 text-sm text-[var(--kk-text-dim)]">
                   Total value: ₹
-                  {(
-                    (parseInt(quantity) || 0) * (parseInt(expectedPrice) || 0)
-                  ).toLocaleString("en-IN")}
+                  {((parseInt(quantity) || 0) * (parseInt(expectedPrice) || 0)).toLocaleString("en-IN")}
                 </div>
               </motion.div>
             </div>
@@ -271,8 +235,6 @@ export default function ListProducePage() {
   );
 }
 
-// ---------------------------------------------------------------- helpers
-
 function Section({ title, icon: Icon, children }: any) {
   return (
     <motion.div
@@ -292,9 +254,7 @@ function Section({ title, icon: Icon, children }: any) {
   );
 }
 
-function InputField({
-  icon: Icon, label, value, onChange, type = "text", placeholder,
-}: any) {
+function InputField({ icon: Icon, label, value, onChange, type = "text", placeholder }: any) {
   return (
     <label className="block">
       <div className="text-xs text-[var(--kk-text-dim)] mb-2 flex items-center gap-1">

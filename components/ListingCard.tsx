@@ -1,13 +1,10 @@
-// components/ListingCard.tsx
-// PURPOSE: Shows one farmer listing (crop, qty, quality, price).
-//          Has a context-specific action button (View Offers / Accept).
 "use client";
 
 import { motion } from "framer-motion";
 import { MapPin, Scale, Award } from "lucide-react";
-import { Listing } from "@/lib/db";
 import { AnimatedButton } from "./AnimatedButton";
 import { formatINR } from "@/lib/utils";
+import type { DbListing as Listing } from "@/lib/types";
 
 interface Props {
   listing: Listing;
@@ -16,7 +13,12 @@ interface Props {
   actionHref?: string;
 }
 
-export function ListingCard({ listing, actionLabel = "View Offers", onAction, actionHref }: Props) {
+export function ListingCard({
+  listing,
+  actionLabel = "View Offers",
+  onAction,
+  actionHref,
+}: Props) {
   return (
     <motion.div
       layout
@@ -34,9 +36,7 @@ export function ListingCard({ listing, actionLabel = "View Offers", onAction, ac
         </span>
       </div>
 
-      <h3 className="mt-4 text-xl font-semibold">
-        {listing.crop}
-      </h3>
+      <h3 className="mt-4 text-xl font-semibold">{listing.crop}</h3>
 
       <div className="mt-1 text-sm text-[var(--kk-text-dim)] flex items-center gap-1">
         <MapPin className="w-3.5 h-3.5" />

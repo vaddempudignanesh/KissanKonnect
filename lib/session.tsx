@@ -1,81 +1,70 @@
 "use client";
 
 import {
-  createContext, useContext, useEffect, useState, ReactNode,
+  createContext, useContext, useEffect, useState, ReactNode, useCallback,
 } from "react";
 import type { DbFarmer, DbBuyer } from "./types";
 
-export type Role = "farmer" | "buyer" | null;
+export type Role = "farmer" | "buyer" | "admin" | null;
+
+interface User {
+  id: number;
+  phone: string;
+  name: string;
+  role: "farmer" | "buyer" | "admin";
+}
 
 interface Session {
   role: Role;
+  user?: User;
   farmer?: DbFarmer;
   buyer?: DbBuyer;
   ready: boolean;
-  loginAsFarmer: (id?: number) => Promise<void>;
-  loginAsBuyer: (id?: number) => Promise<void>;
-  logout: () => void;
+  refreshSession: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const Ctx = createContext<Session | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role>(null);
+  const [user, setUser] = useState<User | undefined>();
   const [farmer, setFarmer] = useState<DbFarmer | undefined>();
   const [buyer, setBuyer] = useState<DbBuyer | undefined>();
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = localStorage.getItem("kk-role") as Role;
-        const idStr = localStorage.getItem("kk-id");
-        if (r && idStr) {
-          const id = Number(idStr);
-          if (r === "farmer") {
-            const res = await fetch(`/api/session?role=farmer&id=${id}`);
-            const j = await res.json();
-            if (j.farmer) { setRole("farmer"); setFarmer(j.farmer); }
-          } else if (r === "buyer") {
-            const res = await fetch(`/api/session?role=buyer&id=${id}`);
-            const j = await res.json();
-            if (j.buyer) { setRole("buyer"); setBuyer(j.buyer); }
-          }
-        }
-      } catch (e) {
-        console.warn("[session] restore failed", e);
-      } finally {
-        setReady(true);
-      }
-    })();
+  const refreshSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      const json = await res.json();
+      setUser(json.user ?? undefined);
+      setFarmer(json.farmer ?? undefined);
+      setBuyer(json.buyer ?? undefined);
+    } catch (e) {
+      console.warn("[session] refresh failed", e);
+    } finally {
+      setReady(true);
+    }
   }, []);
 
-  const loginAsFarmer = async (id?: number) => {
-    const res = await fetch(`/api/session?role=farmer${id ? `&id=${id}` : ""}`);
-    const j = await res.json();
-    if (!j.farmer) return;
-    setRole("farmer"); setFarmer(j.farmer); setBuyer(undefined);
-    localStorage.setItem("kk-role", "farmer");
-    localStorage.setItem("kk-id", String(j.farmer.id));
-  };
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
 
-  const loginAsBuyer = async (id?: number) => {
-    const res = await fetch(`/api/session?role=buyer${id ? `&id=${id}` : ""}`);
-    const j = await res.json();
-    if (!j.buyer) return;
-    setRole("buyer"); setBuyer(j.buyer); setFarmer(undefined);
-    localStorage.setItem("kk-role", "buyer");
-    localStorage.setItem("kk-id", String(j.buyer.id));
-  };
+  const logout = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+    setUser(undefined);
+    setFarmer(undefined);
+    setBuyer(undefined);
+  }, []);
 
-  const logout = () => {
-    setRole(null); setFarmer(undefined); setBuyer(undefined);
-    localStorage.removeItem("kk-role");
-    localStorage.removeItem("kk-id");
-  };
+  const role: Role = user?.role ?? null;
 
   return (
-    <Ctx.Provider value={{ role, farmer, buyer, ready, loginAsFarmer, loginAsBuyer, logout }}>
+    <Ctx.Provider
+      value={{ role, user, farmer, buyer, ready, refreshSession, logout }}
+    >
       {children}
     </Ctx.Provider>
   );
