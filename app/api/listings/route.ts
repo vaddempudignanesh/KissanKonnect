@@ -20,9 +20,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
     const listing = await createListing({
       farmerId: body.farmerId,
       cropId: body.cropId,
+      crop: body.crop,                    // ← THE FIX — forward crop name
       quantityKg: body.quantityKg,
       qualityGrade: body.qualityGrade,
       expectedPrice: body.expectedPrice,
@@ -30,7 +32,13 @@ export async function POST(req: NextRequest) {
       pickupAddress: body.pickupAddress,
       latitude: body.latitude,
       longitude: body.longitude,
+      // also forward these if present (unused for now, but future-proof)
+      village: body.village,
+      district: body.district,
+      state: body.state,
+      photo: body.photo,
     });
+
     return NextResponse.json({ listing });
   } catch (e: any) {
     console.error("[/api/listings POST]", e);

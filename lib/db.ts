@@ -231,11 +231,19 @@ export async function createListing(input: {
   photo?: string;
 }): Promise<DbListing> {
   // If caller passed crop name instead of cropId, resolve it.
+    // If caller passed crop name instead of cropId, resolve it.
   let cropId = input.cropId;
   if (!cropId && input.crop) {
     const row = await queryOne<any>(`SELECT id FROM crops WHERE name = $1`, [input.crop]);
     if (!row) throw new Error(`Unknown crop: ${input.crop}`);
     cropId = row.id;
+  }
+
+  // Guard: crop_id is NOT NULL in the schema — reject if neither was provided
+  if (!cropId) {
+    throw new Error(
+      `crop_id is required. Got cropId=${input.cropId}, crop=${input.crop}`,
+    );
   }
 
   const quantityKg = input.quantityKg ?? input.quantity ?? 0;
